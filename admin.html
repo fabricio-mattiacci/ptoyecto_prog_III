@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - ApostApp</title>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="header-logo">
+            <h1 onclick="window.location.href='index.html'" style="cursor:pointer">🎯 ApostApp</h1>
+        </div>
+        <nav class="header-nav">
+            <span class="header-usuario">👤 Administrador</span>
+            <button class="btn btn-outline" id="btnLogout">Cerrar Sesión</button>
+        </nav>
+    </header>
+
+    <main class="contenido">
+
+        <!-- TABS DE NAVEGACIÓN -->
+        <div class="admin-tabs">
+            <button class="tab activo" onclick="mostrarTab('apuestasVigentes')">
+                Apuestas Vigentes
+            </button>
+            <button class="tab" onclick="mostrarTab('apuestasPendientes')">
+                Apuestas Pendientes
+            </button>
+            <button class="tab" onclick="mostrarTab('crearApuesta')">
+                Crear Apuesta
+            </button>
+            <button class="tab" onclick="mostrarTab('usuarios')">
+                Usuarios
+            </button>
+        </div>
+
+        <!-- TAB: APUESTAS VIGENTES -->
+        <div class="tab-contenido activo" id="apuestasVigentes">
+            <h2>Apuestas Vigentes</h2>
+            <div class="apuestas-grid">
+
+                <div class="apuesta-card admin-card">
+                    <div class="apuesta-estado vigente">Vigente</div>
+                    <h3>Final ATP Madrid</h3>
+                    <div class="apuesta-datos">
+                        <span>📅 01/05/2026</span>
+                        <span>⏰ Cierra: 30/04/2026</span>
+                        <span>💰 $90.000</span>
+                    </div>
+                    <div class="admin-acciones">
+                        <button class="btn btn-warning btn-small">⭐ Destacar</button>
+                        <button class="btn btn-danger btn-small">🔒 Cerrar</button>
+                    </div>
+                </div>
+
+                <div class="apuesta-card admin-card">
+                    <div class="apuesta-estado vigente">Vigente</div>
+                    <h3>Champions League Final</h3>
+                    <div class="apuesta-datos">
+                        <span>📅 31/05/2026</span>
+                        <span>⏰ Cierra: 30/05/2026</span>
+                        <span>💰 $150.000</span>
+                    </div>
+                    <div class="admin-acciones">
+                        <button class="btn btn-warning btn-small">⭐ Destacar</button>
+                        <button class="btn btn-danger btn-small">🔒 Cerrar</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- TAB: APUESTAS PENDIENTES -->
+        <div class="tab-contenido" id="apuestasPendientes" style="display:none">
+            <h2>Apuestas Pendientes de Aprobación</h2>
+            <div class="apuestas-grid">
+
+                <div class="apuesta-card admin-card">
+                    <div class="apuesta-estado pendiente">Pendiente</div>
+                    <h3>Copa América Final</h3>
+                    <div class="apuesta-datos">
+                        <span>📅 13/07/2026</span>
+                        <span>⏰ Cierra: 12/07/2026</span>
+                    </div>
+                    <p class="propuesta-por">Propuesta por: Usuario123</p>
+                    <div class="admin-acciones">
+                        <button class="btn btn-primary btn-small">✅ Aprobar</button>
+                        <button class="btn btn-danger btn-small">❌ Rechazar</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- TAB: CREAR APUESTA -->
+        <div class="tab-contenido" id="crearApuesta" style="display:none">
+            <h2>Crear Nueva Apuesta</h2>
+            <div class="auth-card">
+                <div class="auth-form">
+
+                    <div class="form-grupo">
+                        <label>Título de la Apuesta</label>
+                        <input type="text" id="nuevoTitulo" placeholder="Ej: Final ATP Madrid">
+                    </div>
+
+                    <div class="form-fila">
+                        <div class="form-grupo">
+                            <label>Fecha del Evento</label>
+                            <input type="date" id="nuevaFechaEvento">
+                        </div>
+                        <div class="form-grupo">
+                            <label>Fecha Límite de Apuestas</label>
+                            <input type="date" id="nuevaFechaLimite">
+                        </div>
+                    </div>
+
+                    <h3 class="form-seccion">Pronósticos</h3>
+                    <div id="pronosticosContainer">
+                        <div class="pronostico-input">
+                            <input type="text" placeholder="Pronóstico 1" class="pronostico-desc">
+                        </div>
+                        <div class="pronostico-input">
+                            <input type="text" placeholder="Pronóstico 2" class="pronostico-desc">
+                        </div>
+                    </div>
+
+                    <button class="btn btn-outline btn-small" id="btnAgregarPronostico">
+                        + Agregar Pronóstico
+                    </button>
+
+                    <button class="btn btn-primary btn-full" id="btnCrearApuesta">
+                        Crear Apuesta
+                    </button>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: USUARIOS -->
+        <div class="tab-contenido" id="usuarios" style="display:none">
+            <h2>Usuarios Registrados</h2>
+            <table class="tabla-usuarios">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Fecha Nacimiento</th>
+                        <th>Rol</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Juan Pérez</td>
+                        <td>juan@email.com</td>
+                        <td>15/03/1990</td>
+                        <td><span class="badge usuario">Usuario</span></td>
+                    </tr>
+                    <tr>
+                        <td>María García</td>
+                        <td>maria@email.com</td>
+                        <td>22/07/1985</td>
+                        <td><span class="badge usuario">Usuario</span></td>
+                    </tr>
+                    <tr>
+                        <td>Admin</td>
+                        <td>admin@email.com</td>
+                        <td>01/01/1980</td>
+                        <td><span class="badge admin">Admin</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </main>
+
+    <footer class="footer">
+        <p>© 2026 ApostApp — UTN FRSN — Programación III</p>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
