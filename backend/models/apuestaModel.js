@@ -16,7 +16,7 @@ async function obtenerVigentes() {
     return resultado.recordset;
 }
 
-async function obtenerFinalizadas() {
+async function obtenerCerradas() {
     const resultado = await sql.query(`
         SELECT * FROM Apuestas 
         WHERE estado = 'cerrada'
@@ -54,10 +54,4 @@ async function cerrar(id) {
     `);
 }
 
-async function aprobar(id) {
-    await sql.query(`
-        UPDATE Apuestas SET estado = 'vigente' WHERE id = ${id}
-    `);
-}
-
-module.exports = { obtenerTodas, obtenerVigentes, obtenerFinalizadas, obtenerPorId, crear, destacar, cerrar, aprobar };
+module.exports = { obtenerTodas, obtenerVigentes, obtenerCerradas, obtenerPorId, crear, destacar, cerrar };

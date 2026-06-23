@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - ApostApp</title>
-    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
@@ -13,10 +13,7 @@
         <div class="header-logo">
             <h1 onclick="window.location.href='index.html'" style="cursor:pointer">🎯 ApostApp</h1>
         </div>
-        <nav class="header-nav">
-            <span class="header-usuario">👤 Administrador</span>
-            <button class="btn btn-outline" id="btnLogout">Cerrar Sesión</button>
-        </nav>
+        <nav class="header-nav"></nav>
     </header>
 
     <main class="contenido">
@@ -26,8 +23,8 @@
             <button class="tab activo" onclick="mostrarTab('apuestasVigentes')">
                 Apuestas Vigentes
             </button>
-            <button class="tab" onclick="mostrarTab('apuestasPendientes')">
-                Apuestas Pendientes
+            <button class="tab" onclick="mostrarTab('apuestasCerradas')">
+                Apuestas Cerradas
             </button>
             <button class="tab" onclick="mostrarTab('crearApuesta')">
                 Crear Apuesta
@@ -40,59 +37,13 @@
         <!-- TAB: APUESTAS VIGENTES -->
         <div class="tab-contenido activo" id="apuestasVigentes">
             <h2>Apuestas Vigentes</h2>
-            <div class="apuestas-grid">
-
-                <div class="apuesta-card admin-card">
-                    <div class="apuesta-estado vigente">Vigente</div>
-                    <h3>Final ATP Madrid</h3>
-                    <div class="apuesta-datos">
-                        <span>📅 01/05/2026</span>
-                        <span>⏰ Cierra: 30/04/2026</span>
-                        <span>💰 $90.000</span>
-                    </div>
-                    <div class="admin-acciones">
-                        <button class="btn btn-warning btn-small">⭐ Destacar</button>
-                        <button class="btn btn-danger btn-small">🔒 Cerrar</button>
-                    </div>
-                </div>
-
-                <div class="apuesta-card admin-card">
-                    <div class="apuesta-estado vigente">Vigente</div>
-                    <h3>Champions League Final</h3>
-                    <div class="apuesta-datos">
-                        <span>📅 31/05/2026</span>
-                        <span>⏰ Cierra: 30/05/2026</span>
-                        <span>💰 $150.000</span>
-                    </div>
-                    <div class="admin-acciones">
-                        <button class="btn btn-warning btn-small">⭐ Destacar</button>
-                        <button class="btn btn-danger btn-small">🔒 Cerrar</button>
-                    </div>
-                </div>
-
-            </div>
+            <div class="apuestas-grid" id="gridApuestasAdmin"></div>
         </div>
 
-        <!-- TAB: APUESTAS PENDIENTES -->
-        <div class="tab-contenido" id="apuestasPendientes" style="display:none">
-            <h2>Apuestas Pendientes de Aprobación</h2>
-            <div class="apuestas-grid">
-
-                <div class="apuesta-card admin-card">
-                    <div class="apuesta-estado pendiente">Pendiente</div>
-                    <h3>Copa América Final</h3>
-                    <div class="apuesta-datos">
-                        <span>📅 13/07/2026</span>
-                        <span>⏰ Cierra: 12/07/2026</span>
-                    </div>
-                    <p class="propuesta-por">Propuesta por: Usuario123</p>
-                    <div class="admin-acciones">
-                        <button class="btn btn-primary btn-small">✅ Aprobar</button>
-                        <button class="btn btn-danger btn-small">❌ Rechazar</button>
-                    </div>
-                </div>
-
-            </div>
+        <!-- TAB: APUESTAS CERRADAS -->
+        <div class="tab-contenido" id="apuestasCerradas" style="display:none">
+            <h2>Apuestas Cerradas</h2>
+            <div class="apuestas-grid" id="gridApuestasCerradas"></div>
         </div>
 
         <!-- TAB: CREAR APUESTA -->

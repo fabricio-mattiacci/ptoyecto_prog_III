@@ -12,6 +12,11 @@ async function apostar(req, res) {
             return res.status(400).json({ error: "Monto inválido" });
         }
 
+        const apuesta = await pronosticoModel.obtenerEstadoApuesta(idPronostico);
+        if (!apuesta || apuesta.estado !== "vigente") {
+            return res.status(400).json({ error: "Esta apuesta ya está cerrada" });
+        }
+
         await pronosticoModel.apostar(idUsuario, idPronostico, monto);
         await pronosticoModel.actualizarDividendo(req.body.idApuesta);
 

@@ -10,9 +10,9 @@ async function obtenerVigentes(req, res) {
     }
 }
 
-async function obtenerFinalizadas(req, res) {
+async function obtenerCerradas(req, res) {
     try {
-        const apuestas = await apuestaModel.obtenerFinalizadas();
+        const apuestas = await apuestaModel.obtenerCerradas();
         res.json(apuestas);
     } catch (error) {
         res.status(500).json({ error: "Error en el servidor" });
@@ -26,7 +26,8 @@ async function obtenerPorId(req, res) {
             return res.status(404).json({ error: "Apuesta no encontrada" });
         }
         const pronosticos = await pronosticoModel.obtenerPorApuesta(req.params.id);
-        res.json({ ...apuesta, pronosticos });
+        const pozoBruto = pronosticos.reduce((total, p) => total + (p.totalApostado || 0), 0);
+        res.json({ ...apuesta, pozoBruto, pronosticos });
     } catch (error) {
         res.status(500).json({ error: "Error en el servidor" });
     }
@@ -71,13 +72,4 @@ async function cerrar(req, res) {
     }
 }
 
-async function aprobar(req, res) {
-    try {
-        await apuestaModel.aprobar(req.params.id);
-        res.json({ mensaje: "Apuesta aprobada" });
-    } catch (error) {
-        res.status(500).json({ error: "Error en el servidor" });
-    }
-}
-
-module.exports = { obtenerVigentes, obtenerFinalizadas, obtenerPorId, crear, destacar, cerrar, aprobar };
+module.exports = { obtenerVigentes, obtenerCerradas, obtenerPorId, crear, destacar, cerrar };

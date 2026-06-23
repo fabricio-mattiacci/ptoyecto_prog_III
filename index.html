@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Apuestas</title>
-    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
@@ -13,10 +13,7 @@
         <div class="header-logo">
             <h1>🎯 ApostApp</h1>
         </div>
-        <nav class="header-nav">
-            <button class="btn btn-outline" onclick="window.location.href='login.html'">Iniciar Sesión</button>
-            <button class="btn btn-primary" onclick="window.location.href='registro.html'">Registrarse</button>
-        </nav>
+        <nav class="header-nav"></nav>
     </header>
 
     <!-- APUESTA DESTACADA -->
@@ -38,110 +35,17 @@
                 <span class="dividendo">2.00x</span>
             </div>
         </div>
-        <button class="btn btn-primary">Apostar ahora</button>
+        <button type="button" class="btn btn-primary" id="btnApostarDestacada">Apostar ahora</button>
     </section>
 
     <!-- APUESTAS VIGENTES -->
     <main class="contenido">
         <h2 class="seccion-titulo">Apuestas Vigentes</h2>
-        <div class="apuestas-grid" id="apuestasVigentes">
+        <div class="apuestas-grid" id="apuestasVigentes"></div>
 
-            <div class="apuesta-card">
-                <div class="apuesta-estado vigente">Vigente</div>
-                <h3>Final ATP Madrid</h3>
-                <div class="apuesta-datos">
-                    <span>📅 01/05/2026</span>
-                    <span>⏰ Cierra: 30/04/2026</span>
-                    <span>💰 $90.000</span>
-                </div>
-                <div class="apuesta-pronosticos">
-                    <div class="pronostico">
-                        <span>Gana Sinner</span>
-                        <span class="dividendo">1.63x</span>
-                    </div>
-                    <div class="pronostico">
-                        <span>Gana Alcaraz</span>
-                        <span class="dividendo">2.00x</span>
-                    </div>
-                </div>
-                <button class="btn btn-primary">Ver apuesta</button>
-            </div>
-
-            <div class="apuesta-card">
-                <div class="apuesta-estado vigente">Vigente</div>
-                <h3>Champions League Final</h3>
-                <div class="apuesta-datos">
-                    <span>📅 31/05/2026</span>
-                    <span>⏰ Cierra: 30/05/2026</span>
-                    <span>💰 $150.000</span>
-                </div>
-                <div class="apuesta-pronosticos">
-                    <div class="pronostico">
-                        <span>Gana Real Madrid</span>
-                        <span class="dividendo">1.80x</span>
-                    </div>
-                    <div class="pronostico">
-                        <span>Gana PSG</span>
-                        <span class="dividendo">2.20x</span>
-                    </div>
-                </div>
-                <button class="btn btn-primary">Ver apuesta</button>
-            </div>
-
-            <div class="apuesta-card">
-                <div class="apuesta-estado vigente">Vigente</div>
-                <h3>Formula 1 - GP Monaco</h3>
-                <div class="apuesta-datos">
-                    <span>📅 25/05/2026</span>
-                    <span>⏰ Cierra: 24/05/2026</span>
-                    <span>💰 $75.000</span>
-                </div>
-                <div class="apuesta-pronosticos">
-                    <div class="pronostico">
-                        <span>Gana Verstappen</span>
-                        <span class="dividendo">1.50x</span>
-                    </div>
-                    <div class="pronostico">
-                        <span>Gana Leclerc</span>
-                        <span class="dividendo">2.50x</span>
-                    </div>
-                </div>
-                <button class="btn btn-primary">Ver apuesta</button>
-            </div>
-
-        </div>
-
-        <!-- APUESTAS FINALIZADAS -->
-        <h2 class="seccion-titulo">Apuestas Finalizadas</h2>
-        <div class="apuestas-grid" id="apuestasFinalizadas">
-
-            <div class="apuesta-card finalizada">
-                <div class="apuesta-estado cerrada">Cerrada</div>
-                <h3>Roland Garros Final</h3>
-                <div class="apuesta-datos">
-                    <span>📅 08/06/2025</span>
-                    <span>💰 Pozo: $120.000</span>
-                </div>
-                <div class="apuesta-resultado">
-                    <p>🏆 Ganador: Gana Nadal</p>
-                    <p>💵 Dividendo pagado: 1.75x</p>
-                </div>
-            </div>
-
-            <div class="apuesta-card finalizada">
-                <div class="apuesta-estado cerrada">Cerrada</div>
-                <h3>NBA Finals 2025</h3>
-                <div class="apuesta-datos">
-                    <span>📅 20/06/2025</span>
-                    <span>💰 Pozo: $200.000</span>
-                </div>
-                <div class="apuesta-resultado">
-                    <p>🏆 Ganador: Gana Lakers</p>
-                    <p>💵 Dividendo pagado: 2.10x</p>
-                </div>
-            </div>
-
-        </div>
+        <!-- APUESTAS CERRADAS -->
+        <h2 class="seccion-titulo">Apuestas Cerradas</h2>
+        <div class="apuestas-grid" id="apuestasCerradas"></div>
     </main>
 
     <!-- FOOTER -->

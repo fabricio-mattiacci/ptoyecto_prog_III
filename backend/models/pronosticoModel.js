@@ -2,7 +2,12 @@ const { sql } = require("../config/db");
 
 async function obtenerPorApuesta(idApuesta) {
     const resultado = await sql.query(`
-        SELECT * FROM Pronosticos WHERE idApuesta = ${idApuesta}
+        SELECT p.id, p.idApuesta, p.descripcion, p.dividendo,
+               ISNULL(SUM(au.monto), 0) AS totalApostado
+        FROM Pronosticos p
+        LEFT JOIN ApuestasUsuarios au ON p.id = au.idPronostico
+        WHERE p.idApuesta = ${idApuesta}
+        GROUP BY p.id, p.idApuesta, p.descripcion, p.dividendo
     `);
     return resultado.recordset;
 }
@@ -45,6 +50,16 @@ async function actualizarDividendo(idApuesta) {
     }
 }
 
+async function obtenerEstadoApuesta(idPronostico) {
+    const resultado = await sql.query(`
+        SELECT a.estado
+        FROM Pronosticos p
+        JOIN Apuestas a ON a.id = p.idApuesta
+        WHERE p.id = ${idPronostico}
+    `);
+    return resultado.recordset[0];
+}
+
 async function apostar(idUsuario, idPronostico, monto) {
     await sql.query(`
         INSERT INTO ApuestasUsuarios (idUsuario, idPronostico, monto)
@@ -52,4 +67,4 @@ async function apostar(idUsuario, idPronostico, monto) {
     `);
 }
 
-module.exports = { obtenerPorApuesta, crear, actualizarDividendo, apostar };
+module.exports = { obtenerPorApuesta, crear, actualizarDividendo, apostar, obtenerEstadoApuesta };
