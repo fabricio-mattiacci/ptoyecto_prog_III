@@ -89,8 +89,7 @@ function actualizarHeader() {
         document.getElementById("btnLogout").addEventListener("click", cerrarSesion);
     } else {
         nav.innerHTML = `
-            <button class="btn btn-outline" onclick="window.location.href='login.html'">Iniciar Sesión</button>
-            <button class="btn btn-primary" onclick="window.location.href='registro.html'">Registrarse</button>
+            <button class="btn btn-primary" onclick="window.location.href='login.html'">Iniciar Sesión</button>
         `;
     }
 }
@@ -236,9 +235,64 @@ async function cargarDestacada() {
 }
 
 /* ─── LOGIN ─── */
+function seleccionarPerfilRapido(btn) {
+    document.getElementById("email").value = btn.dataset.email || "";
+    document.getElementById("password").value = btn.dataset.password || "";
+
+    const errorDiv = document.getElementById("errorLogin");
+    if (errorDiv) errorDiv.style.display = "none";
+
+    document.querySelectorAll(".btn-perfil").forEach(function(b) {
+        b.classList.remove("activo");
+    });
+    btn.classList.add("activo");
+}
+
+async function cargarPerfilesRapidos() {
+    const contenedor = document.getElementById("perfilesBotones");
+    const seccion = document.querySelector(".perfiles-rapidos");
+    if (!contenedor) return;
+
+    try {
+        const res = await fetch(`${API}/usuarios`);
+        const usuarios = await res.json();
+
+        if (!res.ok || !Array.isArray(usuarios) || usuarios.length === 0) {
+            if (seccion) seccion.style.display = "none";
+            return;
+        }
+
+        contenedor.innerHTML = "";
+
+        usuarios.forEach(function(usuario) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn btn-outline btn-perfil";
+            btn.dataset.email = usuario.email;
+            btn.dataset.password = usuario.password || "";
+
+            const etiqueta = usuario.rol === "admin"
+                ? `${usuario.nombre} (Admin)`
+                : usuario.nombre;
+
+            btn.textContent = `👤 ${etiqueta}`;
+            btn.addEventListener("click", function() {
+                seleccionarPerfilRapido(btn);
+            });
+            contenedor.appendChild(btn);
+        });
+
+    } catch (error) {
+        console.error("Error cargando perfiles rápidos:", error);
+        if (seccion) seccion.style.display = "none";
+    }
+}
+
 function iniciarLogin() {
     const btnLogin = document.getElementById("btnLogin");
     if (!btnLogin) return;
+
+    cargarPerfilesRapidos();
 
     btnLogin.addEventListener("click", async function() {
         const email = document.getElementById("email").value.trim();
@@ -354,9 +408,9 @@ async function iniciarApuesta() {
             return;
         }
 
-        if (apuesta.estado === "cerrada") {
+        if (apuesta.estado === "cerrada" || apuestaVencida(apuesta.fechaLimite)) {
             document.querySelector(".apuesta-form-seccion").innerHTML =
-                "<p class='error-mensaje'>Esta apuesta ya está cerrada. No se pueden realizar apuestas.</p>";
+                "<p class='error-mensaje'>Esta apuesta ya está cerrada o venció el plazo. No se pueden realizar apuestas.</p>";
         }
 
         document.getElementById("apuestaTitulo").textContent = apuesta.titulo;
@@ -505,18 +559,30 @@ async function cargarApuestasAdmin() {
         const grid = document.getElementById("gridApuestasAdmin");
         grid.innerHTML = "";
 
+        const hayDestacada = vigentes.some(function(a) {
+            return a.destacada;
+        });
+
         vigentes.forEach(function(apuesta) {
+            let btnDestacar = "";
+
+            if (apuesta.destacada) {
+                btnDestacar = `<button class="btn btn-secondary btn-small" onclick="quitarDestacadaApuesta(${apuesta.id})">☆ Quitar destacada</button>`;
+            } else if (!hayDestacada) {
+                btnDestacar = `<button class="btn btn-warning btn-small" onclick="destacarApuesta(${apuesta.id})">⭐ Destacar</button>`;
+            }
+
             const card = document.createElement("div");
             card.classList.add("apuesta-card", "admin-card");
             card.innerHTML = `
                 <div class="apuesta-estado vigente">Vigente</div>
-                <h3>${apuesta.titulo}</h3>
+                <h3>${apuesta.titulo}${apuesta.destacada ? " ⭐" : ""}</h3>
                 <div class="apuesta-datos">
                     <span>📅 ${formatearFecha(apuesta.fechaEvento)}</span>
                     <span>⏰ Cierra: ${formatearFecha(apuesta.fechaLimite)}</span>
                 </div>
                 <div class="admin-acciones">
-                    <button class="btn btn-warning btn-small" onclick="destacarApuesta(${apuesta.id})">⭐ Destacar</button>
+                    ${btnDestacar}
                     <button class="btn btn-danger btn-small" onclick="cerrarApuesta(${apuesta.id})">🔒 Cerrar</button>
                 </div>
             `;
@@ -670,6 +736,26 @@ async function destacarApuesta(id) {
     }
 }
 
+async function quitarDestacadaApuesta(id) {
+    try {
+        const res = await fetch(`${API}/apuestas/${id}/quitar-destacada`, {
+            method: "PUT",
+            headers: headersAdmin()
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert(data.error || "Error al quitar destacada");
+            return;
+        }
+
+        alert(data.mensaje || "Destacada quitada");
+        await cargarApuestasAdmin();
+    } catch (error) {
+        alert("Error de conexión con el servidor");
+    }
+}
+
 async function cerrarApuesta(id) {
     if (!confirm("¿Cerrar esta apuesta? Ya no se podrán hacer apuestas nuevas.")) {
         return;
@@ -737,6 +823,14 @@ function verApuesta(id) {
 }
 
 window.verApuesta = verApuesta;
+
+function apuestaVencida(fechaLimite) {
+    if (!fechaLimite) return false;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const cierre = new Date(fechaLimite + "T00:00:00");
+    return hoy > cierre;
+}
 
 function formatearFecha(fecha) {
     if (!fecha) return "-";

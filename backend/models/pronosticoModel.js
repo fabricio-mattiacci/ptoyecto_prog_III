@@ -1,70 +1,94 @@
-const { sql } = require("../config/db");
+const { db } = require("../config/db");
+const { sincronizarJson } = require("../utils/exportarDatos");
+
+function calcularPozoNeto(apuestaId) {
+    const apuesta = db.prepare(`SELECT comision FROM apuestas WHERE apuesta = ?`).get(apuestaId);
+    const pozo = db.prepare(`
+        SELECT IFNULL(SUM(importe), 0) AS total
+        FROM Apuestas_personas
+        WHERE apuesta = ?
+    `).get(apuestaId);
+
+    const pozoBruto = pozo.total || 0;
+    const comision = apuesta?.comision ?? 10;
+    return pozoBruto - (pozoBruto * comision / 100);
+}
 
 async function obtenerPorApuesta(idApuesta) {
-    const resultado = await sql.query(`
-        SELECT p.id, p.idApuesta, p.descripcion, p.dividendo,
-               ISNULL(SUM(au.monto), 0) AS totalApostado
-        FROM Pronosticos p
-        LEFT JOIN ApuestasUsuarios au ON p.id = au.idPronostico
-        WHERE p.idApuesta = ${idApuesta}
-        GROUP BY p.id, p.idApuesta, p.descripcion, p.dividendo
-    `);
-    return resultado.recordset;
+    const pozoNeto = calcularPozoNeto(idApuesta);
+
+    const detalles = db.prepare(`
+        SELECT
+            d.apuesta,
+            d.ocurrencia,
+            d.descripcion,
+            d.ocurrio,
+            IFNULL(SUM(p.importe), 0) AS totalApostado
+        FROM Apuestas_detalle d
+        LEFT JOIN Apuestas_personas p
+            ON d.apuesta = p.apuesta AND d.ocurrencia = p.ocurrencia
+        WHERE d.apuesta = ?
+        GROUP BY d.apuesta, d.ocurrencia, d.descripcion, d.ocurrio
+        ORDER BY d.ocurrencia
+    `).all(idApuesta);
+
+    return detalles.map(function(d) {
+        const totalApostado = d.totalApostado || 0;
+        return {
+            id: d.ocurrencia,
+            idApuesta: d.apuesta,
+            descripcion: d.descripcion,
+            ocurrio: d.ocurrio,
+            totalApostado,
+            dividendo: totalApostado > 0 ? pozoNeto / totalApostado : 0
+        };
+    });
 }
 
 async function crear(pronostico) {
     const { idApuesta, descripcion } = pronostico;
-    await sql.query(`
-        INSERT INTO Pronosticos (idApuesta, descripcion, dividendo)
-        VALUES (${idApuesta}, '${descripcion}', 0)
-    `);
-}
+    const siguiente = db.prepare(`
+        SELECT COALESCE(MAX(ocurrencia), 0) + 1 AS n
+        FROM Apuestas_detalle
+        WHERE apuesta = ?
+    `).get(idApuesta);
 
-async function actualizarDividendo(idApuesta) {
-    // Calcular pozo bruto
-    const pozo = await sql.query(`
-        SELECT SUM(monto) as total FROM ApuestasUsuarios au
-        JOIN Pronosticos p ON au.idPronostico = p.id
-        WHERE p.idApuesta = ${idApuesta}
-    `);
-    
-    const pozoBruto = pozo.recordset[0].total || 0;
-    const comision = pozoBruto * 0.10;
-    const pozoNeto = pozoBruto - comision;
-
-    // Actualizar dividendo de cada pronóstico
-    const pronosticos = await sql.query(`
-        SELECT p.id, SUM(au.monto) as totalApostado
-        FROM Pronosticos p
-        LEFT JOIN ApuestasUsuarios au ON p.id = au.idPronostico
-        WHERE p.idApuesta = ${idApuesta}
-        GROUP BY p.id
-    `);
-
-    for (const p of pronosticos.recordset) {
-        const totalApostado = p.totalApostado || 0;
-        const dividendo = totalApostado > 0 ? pozoNeto / totalApostado : 0;
-        await sql.query(`
-            UPDATE Pronosticos SET dividendo = ${dividendo} WHERE id = ${p.id}
-        `);
+    if (siguiente.n > 10) {
+        throw new Error("Máximo 10 ocurrencias por apuesta");
     }
+
+    db.prepare(`
+        INSERT INTO Apuestas_detalle (apuesta, ocurrencia, descripcion)
+        VALUES (?, ?, ?)
+    `).run(idApuesta, siguiente.n, descripcion);
+    sincronizarJson();
 }
 
-async function obtenerEstadoApuesta(idPronostico) {
-    const resultado = await sql.query(`
-        SELECT a.estado
-        FROM Pronosticos p
-        JOIN Apuestas a ON a.id = p.idApuesta
-        WHERE p.id = ${idPronostico}
-    `);
-    return resultado.recordset[0];
+async function actualizarDividendo() {
+    sincronizarJson();
 }
 
-async function apostar(idUsuario, idPronostico, monto) {
-    await sql.query(`
-        INSERT INTO ApuestasUsuarios (idUsuario, idPronostico, monto)
-        VALUES (${idUsuario}, ${idPronostico}, ${monto})
-    `);
+async function obtenerEstadoApuesta(idApuesta, ocurrencia) {
+    return db.prepare(`
+        SELECT
+            a.estado,
+            a.fecha_cierre,
+            CASE WHEN date(a.fecha_cierre) < date('now') THEN 1 ELSE 0 END AS vencida
+        FROM apuestas a
+        JOIN Apuestas_detalle d ON d.apuesta = a.apuesta
+        WHERE a.apuesta = ? AND d.ocurrencia = ?
+    `).get(idApuesta, ocurrencia);
+}
+
+async function apostar(idApuesta, ocurrencia, persona, importe) {
+    db.prepare(`
+        INSERT INTO Apuestas_personas (apuesta, ocurrencia, persona, importe, fecha)
+        VALUES (?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(apuesta, ocurrencia, persona) DO UPDATE SET
+            importe = importe + excluded.importe,
+            fecha = datetime('now')
+    `).run(idApuesta, ocurrencia, persona, importe);
+    sincronizarJson();
 }
 
 module.exports = { obtenerPorApuesta, crear, actualizarDividendo, apostar, obtenerEstadoApuesta };

@@ -59,6 +59,18 @@ async function destacar(req, res) {
         await apuestaModel.destacar(req.params.id);
         res.json({ mensaje: "Apuesta destacada" });
     } catch (error) {
+        if (error.code === "DESTACADA_EXISTENTE") {
+            return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+}
+
+async function quitarDestacada(req, res) {
+    try {
+        await apuestaModel.quitarDestacada(req.params.id);
+        res.json({ mensaje: "Apuesta ya no está destacada" });
+    } catch (error) {
         res.status(500).json({ error: "Error en el servidor" });
     }
 }
@@ -72,4 +84,4 @@ async function cerrar(req, res) {
     }
 }
 
-module.exports = { obtenerVigentes, obtenerCerradas, obtenerPorId, crear, destacar, cerrar };
+module.exports = { obtenerVigentes, obtenerCerradas, obtenerPorId, crear, destacar, quitarDestacada, cerrar };

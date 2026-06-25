@@ -12,6 +12,7 @@ router.get("/:id", apuestaController.obtenerPorId);
 // Rutas solo para admin
 router.post("/", verificarAdmin, apuestaController.crear);
 router.put("/:id/destacar", verificarAdmin, apuestaController.destacar);
+router.put("/:id/quitar-destacada", verificarAdmin, apuestaController.quitarDestacada);
 router.put("/:id/cerrar", verificarAdmin, apuestaController.cerrar);
 
 module.exports = router;

@@ -1,24 +1,36 @@
-const { sql } = require("../config/db");
+const { db } = require("../config/db");
+const { sincronizarJson } = require("../utils/exportarDatos");
+
+const SELECT_PERSONA = `
+    SELECT
+        persona AS id,
+        nombre,
+        apellido,
+        mail AS email,
+        clave AS password,
+        fecha_nacimiento AS fechaNacimiento,
+        dni,
+        telefono,
+        estado,
+        CASE WHEN estado = 'ADM' THEN 'admin' ELSE 'usuario' END AS rol
+    FROM personas
+`;
 
 async function obtenerTodos() {
-    const resultado = await sql.query("SELECT * FROM Usuarios");
-    return resultado.recordset;
+    return db.prepare(`${SELECT_PERSONA} ORDER BY nombre`).all();
 }
 
 async function obtenerPorEmail(email) {
-    const resultado = await sql.query(`
-        SELECT * FROM Usuarios WHERE email = '${email}'
-    `);
-    return resultado.recordset[0];
+    return db.prepare(`${SELECT_PERSONA} WHERE mail = ?`).get(email);
 }
 
 async function crear(usuario) {
     const { nombre, apellido, email, password, fechaNacimiento, dni, telefono } = usuario;
-    await sql.query(`
-        INSERT INTO Usuarios (nombre, apellido, email, password, fechaNacimiento, dni, telefono)
-        VALUES ('${nombre}', '${apellido}', '${email}', '${password}', 
-                '${fechaNacimiento}', '${dni}', '${telefono}')
-    `);
+    db.prepare(`
+        INSERT INTO personas (nombre, apellido, mail, clave, fecha_nacimiento, dni, telefono, estado)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'ACT')
+    `).run(nombre, apellido, email, password, fechaNacimiento, dni || null, telefono || null);
+    sincronizarJson();
 }
 
 module.exports = { obtenerTodos, obtenerPorEmail, crear };

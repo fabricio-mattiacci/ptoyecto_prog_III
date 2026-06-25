@@ -2,9 +2,9 @@ const pronosticoModel = require("../models/pronosticoModel");
 
 async function apostar(req, res) {
     try {
-        const { idUsuario, idPronostico, monto } = req.body;
+        const { idUsuario, idPronostico, idApuesta, monto } = req.body;
 
-        if (!idUsuario || !idPronostico || !monto) {
+        if (!idUsuario || !idPronostico || !idApuesta || !monto) {
             return res.status(400).json({ error: "Datos incompletos" });
         }
 
@@ -12,13 +12,13 @@ async function apostar(req, res) {
             return res.status(400).json({ error: "Monto inválido" });
         }
 
-        const apuesta = await pronosticoModel.obtenerEstadoApuesta(idPronostico);
-        if (!apuesta || apuesta.estado !== "vigente") {
-            return res.status(400).json({ error: "Esta apuesta ya está cerrada" });
+        const apuesta = await pronosticoModel.obtenerEstadoApuesta(idApuesta, idPronostico);
+        if (!apuesta || apuesta.estado !== "ACT" || apuesta.vencida) {
+            return res.status(400).json({ error: "Esta apuesta ya está cerrada o venció el plazo" });
         }
 
-        await pronosticoModel.apostar(idUsuario, idPronostico, monto);
-        await pronosticoModel.actualizarDividendo(req.body.idApuesta);
+        await pronosticoModel.apostar(idApuesta, idPronostico, idUsuario, monto);
+        await pronosticoModel.actualizarDividendo();
 
         res.status(201).json({ mensaje: "Apuesta realizada correctamente" });
 
