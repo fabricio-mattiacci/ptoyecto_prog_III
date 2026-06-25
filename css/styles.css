@@ -279,6 +279,35 @@ body {
     border-radius: 6px;
     font-size: 13px;
     line-height: 1.8;
+    margin-top: 12px;
+}
+
+.badge.ganador {
+    background-color: #27ae60;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.badge.perdedor {
+    background-color: #c0392b;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.resultado-persona {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid #e0e0e0;
+    flex-wrap: wrap;
 }
 
 /* ─── AUTH (LOGIN Y REGISTRO) ─── */
@@ -545,7 +574,82 @@ body {
 .admin-acciones {
     display: flex;
     gap: 8px;
-    margin-top: 5px;
+    flex-wrap: wrap;
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.modal-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.modal-card h3 {
+    margin-bottom: 8px;
+    color: #1a1a2e;
+}
+
+.modal-titulo-apuesta {
+    font-weight: bold;
+    margin-bottom: 12px;
+}
+
+.modal-ayuda {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.modal-opciones {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.modal-opcion {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.modal-opcion:hover {
+    border-color: #3498db;
+    background: #f8f9fa;
+}
+
+.modal-opcion.seleccionada {
+    border-color: #27ae60;
+    background: #eafaf1;
+}
+
+.modal-opcion input {
+    margin: 0;
+}
+
+.modal-acciones {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
 }
 
 /* ─── TABLA USUARIOS ─── */

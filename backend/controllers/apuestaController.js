@@ -26,8 +26,9 @@ async function obtenerPorId(req, res) {
             return res.status(404).json({ error: "Apuesta no encontrada" });
         }
         const pronosticos = await pronosticoModel.obtenerPorApuesta(req.params.id);
+        const apuestasPersonas = await apuestaModel.obtenerApuestasPersonas(req.params.id);
         const pozoBruto = pronosticos.reduce((total, p) => total + (p.totalApostado || 0), 0);
-        res.json({ ...apuesta, pozoBruto, pronosticos });
+        res.json({ ...apuesta, pozoBruto, pronosticos, apuestasPersonas });
     } catch (error) {
         res.status(500).json({ error: "Error en el servidor" });
     }
@@ -77,9 +78,18 @@ async function quitarDestacada(req, res) {
 
 async function cerrar(req, res) {
     try {
-        await apuestaModel.cerrar(req.params.id);
-        res.json({ mensaje: "Apuesta cerrada" });
+        const { ocurrenciaGanadora } = req.body;
+
+        if (!ocurrenciaGanadora) {
+            return res.status(400).json({ error: "Debés indicar la ocurrencia ganadora" });
+        }
+
+        await apuestaModel.cerrar(req.params.id, ocurrenciaGanadora);
+        res.json({ mensaje: "Apuesta cerrada y resultado registrado" });
     } catch (error) {
+        if (error.code === "OCURRENCIA_INVALIDA") {
+            return res.status(400).json({ error: error.message });
+        }
         res.status(500).json({ error: "Error en el servidor" });
     }
 }

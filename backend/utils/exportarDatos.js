@@ -27,7 +27,7 @@ function exportarDatos(db) {
             ORDER BY apuesta, ocurrencia
         `).all(),
         Apuestas_personas: db.prepare(`
-            SELECT apuesta, ocurrencia, persona, fecha, importe
+            SELECT apuesta, ocurrencia, persona, fecha, importe, resultado
             FROM Apuestas_personas
             ORDER BY apuesta, ocurrencia, persona
         `).all()

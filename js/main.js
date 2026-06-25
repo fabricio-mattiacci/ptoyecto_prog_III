@@ -1,6 +1,8 @@
 const API = "http://localhost:3000/api";
 
 let usuarioActual = JSON.parse(localStorage.getItem("usuarioActual")) || null;
+let apuestaCerrarId = null;
+let ocurrenciaGanadoraSeleccionada = null;
 
 async function fetchApuestasCerradas() {
     let res = await fetch(`${API}/apuestas/cerradas`);
@@ -168,6 +170,8 @@ async function cargarApuestasCerradas() {
             const resP = await fetch(`${API}/apuestas/${apuesta.id}`);
             const detalle = await resP.json();
 
+            const ganador = detalle.pronosticos.find(function(p) { return p.ocurrio === "S"; });
+
             const card = document.createElement("div");
             card.classList.add("apuesta-card", "finalizada");
             card.innerHTML = `
@@ -178,9 +182,11 @@ async function cargarApuestasCerradas() {
                     <span>⏰ Cerró: ${formatearFecha(detalle.fechaLimite)}</span>
                     <span>💰 Pozo: ${formatearMonto(detalle.pozoBruto)}</span>
                 </div>
+                ${htmlResultadoGanador(ganador)}
                 <div class="apuesta-pronosticos">
-                    ${htmlPronosticos(detalle.pronosticos)}
+                    ${htmlPronosticos(detalle.pronosticos, true)}
                 </div>
+                ${htmlApuestasPersonas(detalle.apuestasPersonas)}
                 <button type="button" class="btn btn-outline" data-apuesta-id="${detalle.id}">Ver detalle</button>
             `;
             contenedor.appendChild(card);
@@ -399,6 +405,8 @@ async function iniciarApuesta() {
 
     sessionStorage.setItem("apuestaId", String(id));
 
+    let soloLectura = false;
+
     try {
         const res = await fetch(`${API}/apuestas/${id}`);
         const apuesta = await res.json();
@@ -411,40 +419,56 @@ async function iniciarApuesta() {
         if (apuesta.estado === "cerrada" || apuestaVencida(apuesta.fechaLimite)) {
             document.querySelector(".apuesta-form-seccion").innerHTML =
                 "<p class='error-mensaje'>Esta apuesta ya está cerrada o venció el plazo. No se pueden realizar apuestas.</p>";
+            soloLectura = true;
         }
 
         document.getElementById("apuestaTitulo").textContent = apuesta.titulo;
+        const ganador = apuesta.pronosticos.find(function(p) { return p.ocurrio === "S"; });
         document.querySelector(".apuesta-datos").innerHTML = `
             <span>📅 Fecha evento: <strong>${formatearFecha(apuesta.fechaEvento)}</strong></span>
             <span>⏰ Cierra: <strong>${formatearFecha(apuesta.fechaLimite)}</strong></span>
             <span>💰 Pozo total: <strong>${formatearMonto(apuesta.pozoBruto)}</strong></span>
+            ${ganador ? `<span>🏆 Ganador: <strong>${ganador.descripcion}</strong></span>` : ""}
         `;
 
         const lista = document.getElementById("pronosticosList");
         lista.innerHTML = "";
-        apuesta.pronosticos.forEach(function(p) {
-            const div = document.createElement("div");
-            div.classList.add("pronostico-opcion");
-            div.innerHTML = `
-                <div class="pronostico-info">
-                    <p class="pronostico-descripcion">${p.descripcion}</p>
-                    <p class="pronostico-apostadores">${formatearMonto(p.totalApostado)} apostado</p>
-                </div>
-                <div class="pronostico-dividendo">
-                    <span class="dividendo">${formatearDividendo(p.dividendo)}x</span>
-                </div>
-            `;
-            div.addEventListener("click", function() {
-                seleccionarPronostico(div, p.id, p.dividendo);
+
+        if (apuesta.estado === "cerrada") {
+            const tituloPronosticos = document.querySelector(".pronosticos-seccion h3");
+            if (tituloPronosticos) tituloPronosticos.textContent = "Resultado de la apuesta";
+            lista.innerHTML = htmlPronosticos(apuesta.pronosticos, true);
+            const resultadoPersonas = document.getElementById("resultadoPersonas");
+            if (resultadoPersonas) {
+                resultadoPersonas.innerHTML = htmlApuestasPersonas(apuesta.apuestasPersonas);
+            }
+        } else {
+            apuesta.pronosticos.forEach(function(p) {
+                const div = document.createElement("div");
+                div.classList.add("pronostico-opcion");
+                div.innerHTML = `
+                    <div class="pronostico-info">
+                        <p class="pronostico-descripcion">${p.descripcion}</p>
+                        <p class="pronostico-apostadores">${formatearMonto(p.totalApostado)} apostado</p>
+                    </div>
+                    <div class="pronostico-dividendo">
+                        <span class="dividendo">${formatearDividendo(p.dividendo)}x</span>
+                    </div>
+                `;
+                div.addEventListener("click", function() {
+                    seleccionarPronostico(div, p.id, p.dividendo);
+                });
+                lista.appendChild(div);
             });
-            lista.appendChild(div);
-        });
+        }
 
     } catch (error) {
         console.error("Error cargando apuesta:", error);
         mostrarErrorApuestaPagina("Error de conexión con el servidor.");
         return;
     }
+
+    if (soloLectura) return;
 
     const montoInput = document.getElementById("montoApuesta");
     if (montoInput) {
@@ -549,6 +573,107 @@ async function iniciarAdmin() {
     await cargarApuestasCerradasAdmin();
     await cargarUsuariosAdmin();
     iniciarCrearApuesta();
+    iniciarModalCerrarApuesta();
+}
+
+function iniciarModalCerrarApuesta() {
+    const modal = document.getElementById("modalCerrarApuesta");
+    const btnCancelar = document.getElementById("btnModalCancelar");
+    const btnConfirmar = document.getElementById("btnModalConfirmarCerrar");
+
+    if (!modal) return;
+
+    btnCancelar.addEventListener("click", ocultarModalCerrarApuesta);
+    btnConfirmar.addEventListener("click", confirmarCierreApuesta);
+
+    modal.addEventListener("click", function(event) {
+        if (event.target === modal) ocultarModalCerrarApuesta();
+    });
+}
+
+function ocultarModalCerrarApuesta() {
+    const modal = document.getElementById("modalCerrarApuesta");
+    if (modal) modal.style.display = "none";
+    apuestaCerrarId = null;
+    ocurrenciaGanadoraSeleccionada = null;
+}
+
+function seleccionarOcurrenciaGanadora(ocurrencia, elemento) {
+    ocurrenciaGanadoraSeleccionada = ocurrencia;
+    document.querySelectorAll(".modal-opcion").forEach(function(op) {
+        op.classList.remove("seleccionada");
+    });
+    elemento.classList.add("seleccionada");
+    const btnConfirmar = document.getElementById("btnModalConfirmarCerrar");
+    if (btnConfirmar) btnConfirmar.disabled = false;
+}
+
+async function mostrarModalCerrarApuesta(id) {
+    try {
+        const resDetalle = await fetch(`${API}/apuestas/${id}`);
+        const detalle = await resDetalle.json();
+
+        if (!resDetalle.ok || !detalle.pronosticos || detalle.pronosticos.length === 0) {
+            alert("No se pudo cargar los pronósticos de la apuesta");
+            return;
+        }
+
+        apuestaCerrarId = id;
+        ocurrenciaGanadoraSeleccionada = null;
+
+        document.getElementById("modalCerrarTitulo").textContent = detalle.titulo;
+
+        const contenedor = document.getElementById("modalOpcionesGanador");
+        contenedor.innerHTML = "";
+
+        detalle.pronosticos.forEach(function(p) {
+            const opcion = document.createElement("label");
+            opcion.className = "modal-opcion";
+            opcion.innerHTML = `
+                <input type="radio" name="ocurrenciaGanadora" value="${p.id}">
+                <span><strong>${p.descripcion}</strong> (ocurrencia ${p.id})</span>
+            `;
+            opcion.addEventListener("click", function() {
+                seleccionarOcurrenciaGanadora(p.id, opcion);
+            });
+            contenedor.appendChild(opcion);
+        });
+
+        const btnConfirmar = document.getElementById("btnModalConfirmarCerrar");
+        if (btnConfirmar) btnConfirmar.disabled = true;
+
+        document.getElementById("modalCerrarApuesta").style.display = "flex";
+    } catch (error) {
+        alert("Error de conexión con el servidor");
+    }
+}
+
+async function confirmarCierreApuesta() {
+    if (!apuestaCerrarId || !ocurrenciaGanadoraSeleccionada) {
+        alert("Seleccioná la opción ganadora");
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API}/apuestas/${apuestaCerrarId}/cerrar`, {
+            method: "PUT",
+            headers: headersAdmin(),
+            body: JSON.stringify({ ocurrenciaGanadora: ocurrenciaGanadoraSeleccionada })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            alert(data.error || "Error al cerrar");
+            return;
+        }
+
+        ocultarModalCerrarApuesta();
+        alert(data.mensaje || "Apuesta cerrada y resultado registrado");
+        await cargarApuestasAdmin();
+        await cargarApuestasCerradasAdmin();
+    } catch (error) {
+        alert("Error de conexión con el servidor");
+    }
 }
 
 async function cargarApuestasAdmin() {
@@ -583,7 +708,7 @@ async function cargarApuestasAdmin() {
                 </div>
                 <div class="admin-acciones">
                     ${btnDestacar}
-                    <button class="btn btn-danger btn-small" onclick="cerrarApuesta(${apuesta.id})">🔒 Cerrar</button>
+                    <button class="btn btn-danger btn-small" onclick="cerrarApuesta(${apuesta.id})">🏆 Cerrar y definir resultado</button>
                 </div>
             `;
             grid.appendChild(card);
@@ -610,20 +735,25 @@ async function cargarApuestasCerradasAdmin() {
         for (const apuesta of cerradas) {
             const resP = await fetch(`${API}/apuestas/${apuesta.id}`);
             const detalle = await resP.json();
+            const ganador = detalle.pronosticos.find(function(p) { return p.ocurrio === "S"; });
+            const sinResultado = !ganador;
 
             const card = document.createElement("div");
             card.classList.add("apuesta-card", "admin-card", "finalizada");
             card.innerHTML = `
-                <div class="apuesta-estado cerrada">Cerrada</div>
+                <div class="apuesta-estado cerrada">${sinResultado ? "Pendiente de resultado" : "Cerrada"}</div>
                 <h3>${detalle.titulo}</h3>
                 <div class="apuesta-datos">
                     <span>📅 ${formatearFecha(detalle.fechaEvento)}</span>
                     <span>⏰ Cerró: ${formatearFecha(detalle.fechaLimite)}</span>
                     <span>💰 Pozo: ${formatearMonto(detalle.pozoBruto)}</span>
                 </div>
+                ${sinResultado ? `<p class="modal-ayuda">El admin debe definir qué opción ganó para registrar GAN/PER.</p>` : htmlResultadoGanador(ganador)}
                 <div class="apuesta-pronosticos">
-                    ${htmlPronosticos(detalle.pronosticos)}
+                    ${htmlPronosticos(detalle.pronosticos, !sinResultado)}
                 </div>
+                ${sinResultado ? "" : htmlApuestasPersonas(detalle.apuestasPersonas)}
+                ${sinResultado ? `<div class="admin-acciones"><button class="btn btn-danger btn-small" onclick="cerrarApuesta(${detalle.id})">🏆 Definir resultado</button></div>` : ""}
             `;
             grid.appendChild(card);
         }
@@ -757,29 +887,10 @@ async function quitarDestacadaApuesta(id) {
 }
 
 async function cerrarApuesta(id) {
-    if (!confirm("¿Cerrar esta apuesta? Ya no se podrán hacer apuestas nuevas.")) {
-        return;
-    }
-
-    try {
-        const res = await fetch(`${API}/apuestas/${id}/cerrar`, {
-            method: "PUT",
-            headers: headersAdmin()
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-            alert(data.error || "Error al cerrar");
-            return;
-        }
-
-        alert(data.mensaje || "Apuesta cerrada");
-        await cargarApuestasAdmin();
-        await cargarApuestasCerradasAdmin();
-    } catch (error) {
-        alert("Error de conexión con el servidor");
-    }
+    await mostrarModalCerrarApuesta(id);
 }
+
+window.cerrarApuesta = cerrarApuesta;
 
 /* ─── TABS ADMIN ─── */
 function mostrarTab(tabId) {
@@ -847,11 +958,20 @@ function formatearDividendo(dividendo) {
     return valor > 0 ? valor.toFixed(2) : "0";
 }
 
-function htmlPronosticos(pronosticos) {
+function htmlPronosticos(pronosticos, mostrarResultado) {
+    if (!pronosticos || pronosticos.length === 0) return "";
+
     return pronosticos.map(function(p) {
+        let badge = "";
+        if (mostrarResultado && p.ocurrio === "S") {
+            badge = `<span class="badge ganador">Ganó (S)</span>`;
+        } else if (mostrarResultado && p.ocurrio === "N") {
+            badge = `<span class="badge perdedor">No (N)</span>`;
+        }
+
         return `
             <div class="pronostico">
-                <span>${p.descripcion}</span>
+                <span>${p.descripcion} ${badge}</span>
                 <div class="pronostico-stats">
                     <span class="monto-apostado">${formatearMonto(p.totalApostado)}</span>
                     <span class="dividendo">${formatearDividendo(p.dividendo)}x</span>
@@ -859,6 +979,38 @@ function htmlPronosticos(pronosticos) {
             </div>
         `;
     }).join("");
+}
+
+function htmlResultadoGanador(ganador) {
+    if (!ganador) return "";
+    return `
+        <div class="apuesta-resultado">
+            <strong>Resultado:</strong> ${ganador.descripcion}
+            <span class="badge ganador">ocurrio: S</span>
+        </div>
+    `;
+}
+
+function htmlApuestasPersonas(apuestasPersonas) {
+    if (!apuestasPersonas || apuestasPersonas.length === 0) return "";
+
+    const filas = apuestasPersonas.map(function(ap) {
+        const clase = ap.resultado === "GAN" ? "ganador" : "perdedor";
+        return `
+            <div class="resultado-persona">
+                <span>${ap.nombre} ${ap.apellido} — ${ap.descripcion}</span>
+                <span>${formatearMonto(ap.importe)}</span>
+                <span class="badge ${clase}">${ap.resultado || "—"}</span>
+            </div>
+        `;
+    }).join("");
+
+    return `
+        <div class="apuesta-resultado">
+            <strong>Apuestas de personas:</strong>
+            ${filas}
+        </div>
+    `;
 }
 
 function cerrarSesion() {

@@ -21,7 +21,6 @@ function esquemaActualizado(db) {
 }
 
 function recrearBase(db) {
-    db.pragma("foreign_keys = OFF");
     db.exec(`
         DROP TABLE IF EXISTS Apuestas_personas;
         DROP TABLE IF EXISTS Apuestas_detalle;
@@ -34,7 +33,14 @@ function recrearBase(db) {
     `);
     db.exec(leerSql("sqlite_schema.sql"));
     db.exec(leerSql("sqlite_seed.sql"));
-    db.pragma("foreign_keys = ON");
+    migrarColumnas(db);
+}
+
+function migrarColumnas(db) {
+    const columnas = db.prepare("PRAGMA table_info(Apuestas_personas)").all();
+    if (columnas.length > 0 && !columnas.some((col) => col.name === "resultado")) {
+        db.exec("ALTER TABLE Apuestas_personas ADD COLUMN resultado TEXT");
+    }
 }
 
 function inicializarBase() {
@@ -44,7 +50,6 @@ function inicializarBase() {
     }
 
     const db = new Database(DB_PATH);
-    db.pragma("foreign_keys = ON");
 
     const tieneEsquemaNuevo = esquemaActualizado(db);
     const existeApuestasVieja = db.prepare(`
@@ -56,6 +61,7 @@ function inicializarBase() {
         recrearBase(db);
     } else {
         db.exec(leerSql("sqlite_schema.sql"));
+        migrarColumnas(db);
         const cantidadPersonas = db.prepare("SELECT COUNT(*) AS total FROM personas").get().total;
         if (cantidadPersonas === 0) {
             db.exec(leerSql("sqlite_seed.sql"));

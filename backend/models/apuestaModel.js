@@ -88,14 +88,56 @@ async function quitarDestacada(id) {
     sincronizarJson();
 }
 
-async function cerrar(id) {
+async function cerrar(id, ocurrenciaGanadora) {
+    const detalle = db.prepare(`
+        SELECT ocurrencia FROM Apuestas_detalle
+        WHERE apuesta = ? AND ocurrencia = ?
+    `).get(id, ocurrenciaGanadora);
+
+    if (!detalle) {
+        const error = new Error("La ocurrencia ganadora no existe en esta apuesta");
+        error.code = "OCURRENCIA_INVALIDA";
+        throw error;
+    }
+
+    db.prepare(`UPDATE apuestas SET estado = 'FIN' WHERE apuesta = ?`).run(id);
+
     db.prepare(`
-        UPDATE apuestas SET estado = 'FIN' WHERE apuesta = ?
-    `).run(id);
+        UPDATE Apuestas_detalle
+        SET ocurrio = CASE WHEN ocurrencia = ? THEN 'S' ELSE 'N' END
+        WHERE apuesta = ?
+    `).run(ocurrenciaGanadora, id);
+
+    db.prepare(`
+        UPDATE Apuestas_personas
+        SET resultado = CASE WHEN ocurrencia = ? THEN 'GAN' ELSE 'PER' END
+        WHERE apuesta = ?
+    `).run(ocurrenciaGanadora, id);
+
     sincronizarJson();
+}
+
+async function obtenerApuestasPersonas(id) {
+    return db.prepare(`
+        SELECT
+            ap.ocurrencia,
+            ap.persona,
+            ap.importe,
+            ap.fecha,
+            ap.resultado,
+            p.nombre,
+            p.apellido,
+            p.mail AS email,
+            d.descripcion
+        FROM Apuestas_personas ap
+        JOIN personas p ON p.persona = ap.persona
+        JOIN Apuestas_detalle d ON d.apuesta = ap.apuesta AND d.ocurrencia = ap.ocurrencia
+        WHERE ap.apuesta = ?
+        ORDER BY ap.fecha DESC
+    `).all(id);
 }
 
 module.exports = {
     obtenerTodas, obtenerVigentes, obtenerCerradas, obtenerPorId,
-    obtenerDestacadaVigente, crear, destacar, quitarDestacada, cerrar
+    obtenerDestacadaVigente, crear, destacar, quitarDestacada, cerrar, obtenerApuestasPersonas
 };

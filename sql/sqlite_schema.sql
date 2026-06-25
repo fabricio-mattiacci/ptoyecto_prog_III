@@ -26,9 +26,8 @@ CREATE TABLE IF NOT EXISTS Apuestas_detalle (
     apuesta         INTEGER NOT NULL,
     ocurrencia      INTEGER NOT NULL,
     descripcion     TEXT NOT NULL,
-    ocurrio         TEXT,
-    PRIMARY KEY (apuesta, ocurrencia),
-    FOREIGN KEY (apuesta) REFERENCES apuestas(apuesta)
+    ocurrio         TEXT,                            -- C(1): 'S' = ocurrió, 'N' = no ocurrió
+    PRIMARY KEY (apuesta, ocurrencia)
 );
 
 CREATE TABLE IF NOT EXISTS Apuestas_personas (
@@ -37,7 +36,6 @@ CREATE TABLE IF NOT EXISTS Apuestas_personas (
     persona         INTEGER NOT NULL,
     fecha           TEXT NOT NULL DEFAULT (datetime('now')),
     importe         REAL NOT NULL,
-    PRIMARY KEY (apuesta, ocurrencia, persona),
-    FOREIGN KEY (apuesta, ocurrencia) REFERENCES Apuestas_detalle(apuesta, ocurrencia),
-    FOREIGN KEY (persona) REFERENCES personas(persona)
+    resultado       TEXT,                            -- C(3): 'GAN' = ganó, 'PER' = perdió
+    PRIMARY KEY (apuesta, ocurrencia, persona)
 );

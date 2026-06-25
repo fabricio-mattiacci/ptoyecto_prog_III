@@ -127,6 +127,20 @@
 
     </main>
 
+    <!-- Modal: admin define el resultado al cerrar -->
+    <div id="modalCerrarApuesta" class="modal-overlay" style="display:none">
+        <div class="modal-card">
+            <h3>Cerrar apuesta y definir resultado</h3>
+            <p id="modalCerrarTitulo" class="modal-titulo-apuesta"></p>
+            <p class="modal-ayuda">El admin debe indicar qué opción ganó. Se guardará en la base de datos como <strong>ocurrio S/N</strong> y <strong>GAN/PER</strong> por persona.</p>
+            <div id="modalOpcionesGanador" class="modal-opciones"></div>
+            <div class="modal-acciones">
+                <button type="button" class="btn btn-outline" id="btnModalCancelar">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnModalConfirmarCerrar" disabled>Confirmar cierre</button>
+            </div>
+        </div>
+    </div>
+
     <footer class="footer">
         <p>© 2026 ApostApp — UTN FRSN — Programación III</p>
     </footer>
