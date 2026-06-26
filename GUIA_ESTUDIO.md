@@ -2,320 +2,467 @@
 
 **Proyecto Final — Programación III — UTN FRSN**
 
+Documento para estudiar el proyecto: arquitectura, base de datos, y **qué hace cada función**.
+
 ---
 
 ## Visión general
 
-Es una aplicación de **apuestas deportivas** con arquitectura **cliente-servidor**:
+Aplicación de **apuestas deportivas** con arquitectura **cliente-servidor**:
 
 ```
-Navegador (HTML + CSS + JS)  →  fetch  →  API Express (Node.js)  →  SQLite
+Navegador (HTML + CSS + JS)
+    │
+    ├─ LECTURAS  →  GET /api/datos  →  datos.json  ←  SQLite (tiempo real)
+    │
+    └─ ESCRITURAS →  POST/PUT API   →  Controllers → Models → SQLite → datos.json
 ```
 
-- **Frontend:** páginas estáticas + `main.js` que consume la API.
-- **Backend:** API REST en capas (rutas → controladores → modelos → base).
-- **Base de datos:** SQLite en un archivo local (no SQL Server).
+### Decisiones del modelo del TP
+
+| Requisito | Cómo lo cumplimos |
+|-----------|-------------------|
+| Leer todo desde JSON | `datos.js` + polling cada 3 s |
+| JSON sincronizado con la DB | `exportarDatos.js` después de cada cambio |
+| Sin JOIN en SQL | Consultas con `WHERE`; se combina en JS |
+| Sin foreign keys | Solo primary keys en el schema |
+| Sin campo `id` | Usamos `apuesta`, `persona`, `ocurrencia` |
+| Sin JavaScript en el HTML | Eventos en `main.js` con `addEventListener` |
+| Resultado al cerrar | Admin elige ganador → `GAN`/`PER` en `Apuestas_personas` |
 
 ---
 
-## Carpetas principales
+## Carpetas y archivos
 
-### Raíz del proyecto (`PROYECTO FINAL/`)
-
-| Carpeta / archivo | Para qué sirve |
-|-------------------|----------------|
-| `index.html` | Página principal: apuesta destacada, vigentes y cerradas |
-| `login.html` | Inicio de sesión + perfiles rápidos |
-| `registro.html` | Registro de usuarios (hoy está roto: es copia del login) |
-| `apuesta.html` | Detalle de una apuesta y formulario para apostar |
-| `admin.html` | Panel admin: crear/cerrar apuestas, ver usuarios |
-| `INSTRUCCIONES.md` | Cómo ejecutar el proyecto (para los profes) |
-| `.gitignore` | Excluye `node_modules`, `.env`, `backend/data/` |
-
-### `css/`
+### Raíz
 
 | Archivo | Rol |
 |---------|-----|
-| `styles.css` | Todos los estilos: header, cards, admin, login, footer sticky, responsive |
+| `INSTRUCCIONES.md` | Cómo ejecutar |
+| `GUIA_ESTUDIO.md` | Este archivo |
 
-### `js/`
+### `frontend/`
 
 | Archivo | Rol |
 |---------|-----|
-| `main.js` | **Todo el frontend:** API calls, login, renderizado, admin, apostar |
+| `index.html` | Home: destacada, vigentes, cerradas |
+| `login.html` | Login + perfiles rápidos |
+| `apuesta.html` | Detalle, elegir pronóstico, apostar o ver resultado |
+| `admin.html` | Panel admin con 4 pestañas + modal de cierre |
+| `js/datos.js` | Descarga `datos.json`, filtra y calcula dividendos/pozos en el navegador |
+| `js/main.js` | Eventos, renderizado, login, admin, apostar (escrituras vía API) |
+| `css/styles.css` | Estilos de la aplicación |
 
 ### `sql/`
 
 | Archivo | Rol |
 |---------|-----|
-| `sqlite_schema.sql` | Crea las 4 tablas si no existen |
-| `sqlite_seed.sql` | Datos iniciales (solo si la base está vacía) |
+| `sqlite_schema.sql` | Crea las 4 tablas (`CREATE TABLE IF NOT EXISTS`) |
+| `sqlite_seed.sql` | Admin, Tomás, Fabricio + apuesta Argentina vs Alemania |
 
 ### `backend/`
 
-| Carpeta | Rol |
-|---------|-----|
-| `server.js` | Punto de entrada: Express, middlewares, rutas, puerto 3000 |
-| `config/` | Conexión e inicialización de SQLite |
-| `routes/` | Define URLs de la API y qué middleware usa cada una |
-| `controllers/` | Lógica de negocio HTTP: validar, responder JSON |
-| `models/` | Consultas SQL (SELECT, INSERT, UPDATE) |
-| `middlewares/` | Auth y manejo de errores |
-| `utils/` | Exportar base a `datos.json` |
-| `data/` | `sistema_apuestas.db` + `datos.json` (generados al correr) |
+| Carpeta/archivo | Rol |
+|----------------|-----|
+| `server.js` | Express, API, sirve el frontend estático en puerto 3000 |
+| `config/db.js` | Abre SQLite, ejecuta schema y seed si hace falta |
+| `routes/` | URLs de la API |
+| `controllers/` | Validaciones HTTP y respuestas JSON |
+| `models/` | SQL con `WHERE` (sin JOIN) |
+| `middlewares/` | Auth por headers y errores 404/500 |
+| `utils/exportarDatos.js` | Escribe `datos.json` |
+| `data/` | `.db` y `.json` generados al correr |
 
 ---
 
 ## Modelo de datos (4 tablas)
 
 ```
-Usuarios          → quién usa la app (admin / usuario)
-Apuestas          → evento (ej: "Argentina vs Alemania")
-ApuestaPronostico → opciones (ej: "Argentina", "Alemania") + dividendo
-ApuestasUsuarios  → cada apuesta de un usuario (monto + pronóstico elegido)
+personas            → usuarios del sistema (estado ADM = admin, ACT = usuario)
+apuestas            → eventos (ej: "Argentina vs Alemania")
+Apuestas_detalle    → opciones / ocurrencias (ej: "Argentina", "Alemania")
+Apuestas_personas   → cada apuesta de una persona (importe + resultado)
 ```
 
-**Relaciones:**
+### Campos importantes
 
-- Una **Apuesta** tiene varios **Pronósticos**.
-- Un **Usuario** apuesta en un **Pronóstico** → registro en **ApuestasUsuarios**.
+| Tabla | Campo | Valores |
+|-------|-------|---------|
+| `personas` | `estado` | `ADM` (admin), `ACT` (usuario) |
+| `apuestas` | `estado` | `ACT` (activa), `FIN` (cerrada por admin) |
+| `apuestas` | `prioridad` | `> 0` = destacada |
+| `Apuestas_personas` | `resultado` | `GAN` o `PER` (null si no cerró) |
+
+**Relaciones:** no hay foreign keys en SQL; se relacionan por `apuesta`, `ocurrencia` y `persona` en el código.
 
 ---
 
-## Flujo de una request (ejemplo: apostar)
+## Flujos principales
+
+### Ver apuestas en el index
 
 ```
-1. Usuario hace clic en "Confirmar apuesta" (apuesta.html)
-2. main.js → POST /api/pronosticos/apostar + headers { usuario: id }
-3. pronosticoRoutes → verificarLogin (middleware)
-4. pronosticoController.apostar → valida monto, estado vigente
-5. pronosticoModel.apostar → INSERT en ApuestasUsuarios
-6. pronosticoModel.actualizarDividendo → recalcula dividendos
-7. sincronizarJson() → actualiza datos.json
-8. res.json({ mensaje: "..." }) → frontend muestra éxito
+1. iniciarIndex() → cargarDatos()
+2. datos.js filtra apuestas vigentes/cerradas desde el JSON
+3. main.js arma las cards en pantalla
+4. iniciarPollingDatos() cada 3 s: si cambió "actualizado", recarga
+```
+
+### Apostar
+
+```
+1. Usuario elige pronóstico y monto en apuesta.html
+2. POST /api/pronosticos/apostar  { persona, ocurrencia, apuesta, monto }
+3. pronosticoModel.apostar → INSERT/UPDATE en Apuestas_personas
+4. sincronizarJson() → actualiza datos.json
+5. Frontend recarga datos y muestra el nuevo pozo/dividendo
+```
+
+### Cerrar apuesta (admin)
+
+```
+1. Admin clic en "Cerrar y definir resultado" → modal
+2. Elige la opción ganadora (descripción, no un "id")
+3. PUT /api/apuestas/:apuesta/cerrar  { ocurrenciaGanadora }
+4. apuestaModel.cerrar:
+   - apuestas.estado = 'FIN'
+   - Apuestas_personas.resultado = GAN/PER
+5. sincronizarJson()
+```
+
+### Dividendo (sistema parimutuel)
+
+```
+pozoBruto = suma de todos los importes de la apuesta
+pozoNeto  = pozoBruto - 10% comisión
+dividendo = pozoNeto / total apostado en ESA ocurrencia
 ```
 
 ---
 
-## Archivos del backend (detalle)
+# Backend — función por función
 
-### `server.js`
+## `server.js`
 
-- Crea la app Express.
-- `cors()` → permite que el frontend (puerto 5500) llame al backend (3000).
-- `express.json()` → parsea body JSON.
-- Monta rutas: `/api/usuarios`, `/api/apuestas`, `/api/pronosticos`.
-- Escucha en puerto **3000**.
-
-### `config/db.js`
-
-- Abre `backend/data/sistema_apuestas.db` con **better-sqlite3**.
-- Ejecuta `sqlite_schema.sql`.
-- Si no hay usuarios → ejecuta `sqlite_seed.sql`.
-- Al terminar → genera `datos.json`.
-
-**Código esencial:**
-
-```javascript
-const db = new Database(DB_PATH);
-db.prepare("SELECT ... WHERE id = ?").get(id);  // leer uno
-db.prepare("INSERT ...").run(valor1, valor2);    // escribir
-```
-
-### `routes/usuarioRoutes.js`
-
-| Método | Ruta | Acción |
-|--------|------|--------|
-| POST | `/login` | Login |
-| POST | `/registro` | Alta usuario |
-| GET | `/` | Listar usuarios |
-
-### `routes/apuestaRoutes.js`
-
-| Método | Ruta | Auth | Acción |
-|--------|------|------|--------|
-| GET | `/vigentes` | Pública | Listar vigentes |
-| GET | `/cerradas` | Pública | Listar cerradas |
-| GET | `/:id` | Pública | Detalle + pronósticos + pozo |
-| POST | `/` | Admin | Crear apuesta |
-| PUT | `/:id/destacar` | Admin | Marcar destacada |
-| PUT | `/:id/cerrar` | Admin | Cerrar apuesta |
-
-### `routes/pronosticoRoutes.js`
-
-| Método | Ruta | Auth | Acción |
-|--------|------|------|--------|
-| POST | `/apostar` | Usuario logueado | Registrar apuesta |
-
-### `middlewares/authMiddleware.js`
-
-No usa JWT ni sesiones en servidor. Lee **headers** enviados por el frontend:
-
-```javascript
-req.headers["usuario"]  // id del usuario → verificarLogin
-req.headers["rol"]      // debe ser "admin" → verificarAdmin
-```
-
-### `middlewares/errorMiddleware.js`
-
-- `rutaNoEncontrada` → 404 JSON.
-- `manejarErrores` → 500 JSON.
-
-### `controllers/usuarioController.js`
-
-- **login:** busca por email, compara password en texto plano, devuelve `{ id, nombre, email, rol }`.
-- **registro:** valida mayor de 18, email único, crea usuario.
-- **obtenerTodos:** lista usuarios (incluye password → solo para demo).
-
-### `controllers/apuestaController.js`
-
-- **obtenerPorId:** apuesta + pronósticos + `pozoBruto` (suma de montos).
-- **crear:** inserta apuesta y N pronósticos (mínimo 2).
-- **destacar / cerrar:** UPDATE en la tabla Apuestas.
-
-### `controllers/pronosticoController.js`
-
-- Valida monto (1–100000).
-- Verifica que la apuesta esté `vigente`.
-- Guarda apuesta y recalcula dividendos.
-
-### `models/usuarioModel.js`
-
-SQL directo: `obtenerTodos`, `obtenerPorEmail`, `crear`.
-
-### `models/apuestaModel.js`
-
-CRUD de apuestas: vigentes, cerradas, crear, destacar, cerrar.
-
-### `models/pronosticoModel.js` — lógica importante
-
-**Dividendo (sistema parimutuel):**
-
-```javascript
-pozoBruto = suma de todos los montos apostados
-pozoNeto  = pozoBruto - 10%   // comisión de la casa
-dividendo = pozoNeto / totalApostadoEnEsePronostico
-```
-
-**Ejemplo:** si en "Argentina" se apostó $500 y el pozo neto es $720 → dividendo = 720/500 = **1.44x**.
-
-### `utils/exportarDatos.js`
-
-Lee las 4 tablas y escribe `backend/data/datos.json` con timestamp `actualizado`. Se llama al iniciar el servidor y después de cada cambio en la base.
+| Parte | Qué hace |
+|-------|----------|
+| `cors()` | Permite que el navegador llame a la API |
+| `express.json()` | Lee body JSON en POST/PUT |
+| Rutas `/api/*` | Monta usuarios, apuestas, pronósticos, datos |
+| `express.static(..)` | Sirve HTML/CSS/JS desde la carpeta `frontend/` |
+| `app.listen(3000)` | Arranca el servidor |
 
 ---
 
-## Archivos del frontend
-
-### `index.html`
-
-Estructura: header, sección destacada, grids `#apuestasVigentes` y `#apuestasCerradas`. El HTML inicial es placeholder; `main.js` lo reemplaza con datos reales.
-
-### `login.html`
-
-Formulario email/password + contenedor `#perfilesBotones` (usuarios cargados desde la API).
-
-### `apuesta.html`
-
-Título, pronósticos, input de monto, botón confirmar. El `id` de la apuesta viene de URL, hash o `sessionStorage`.
-
-### `admin.html`
-
-4 tabs: vigentes, cerradas, crear apuesta, usuarios. Tabla y formularios; contenido dinámico desde JS.
-
-### `js/main.js` — funciones clave
+## `config/db.js`
 
 | Función | Qué hace |
 |---------|----------|
-| `DOMContentLoaded` | Detecta página y llama al `iniciar*` correspondiente |
-| `actualizarHeader()` | Nav según si hay sesión (localStorage) |
-| `iniciarIndex()` | Carga vigentes, cerradas y destacada |
-| `iniciarLogin()` | POST login, guarda en `localStorage` |
-| `iniciarApuesta()` | GET detalle, permite elegir pronóstico y apostar |
-| `iniciarAdmin()` | Carga tabs admin, protege si no es admin |
-| `headersAdmin()` | Header `rol: admin` para rutas admin |
-| `headersAuth()` | Header `usuario: id` para apostar |
-| `verApuesta(id)` | Guarda id en `sessionStorage` y va a `apuesta.html` |
-| `cerrarSesion()` | Borra `localStorage` |
+| `leerSql(archivo)` | Lee un archivo `.sql` de la carpeta `sql/` |
+| `inicializarBase()` | Abre `sistema_apuestas.db`, ejecuta schema; si no hay personas, ejecuta seed |
+| `conectar()` | Log de conexión (lo usa `server.js` al iniciar) |
 
-**Sesión en el navegador:**
-
-```javascript
-localStorage.setItem("usuarioActual", JSON.stringify(data));  // al login
-sessionStorage.setItem("apuestaId", id);                       // al ver apuesta
-```
-
-**Patrón fetch típico:**
-
-```javascript
-const res = await fetch(`${API}/apuestas/vigentes`);
-const apuestas = await res.json();
-// construir HTML con template strings y innerHTML
-```
-
-### `css/styles.css`
-
-- Colores principales: `#1a1a2e` (oscuro), `#e94560` (acento rojo).
-- `.header` sticky, `.apuestas-grid`, `.destacada`, tabs admin.
-- Footer al fondo de la página:
-
-```css
-body { min-height: 100vh; display: flex; flex-direction: column; }
-.contenido { flex: 1; }
-.footer { margin-top: auto; }
-```
+Al cargar el módulo también llama `exportarDatos(db)` para generar el primer `datos.json`.
 
 ---
 
-## Conceptos importantes para el oral / parcial
+## `utils/exportarDatos.js`
 
-1. **Arquitectura en capas:** Routes → Controllers → Models → DB.
-2. **REST:** GET lee, POST crea, PUT actualiza; respuestas JSON + códigos HTTP (200, 201, 400, 401, 403, 404, 500).
-3. **CORS:** necesario porque frontend (5500) y backend (3000) son orígenes distintos.
-4. **SQLite:** base en archivo; `better-sqlite3` con prepared statements (`?` evita SQL injection).
-5. **Auth simple:** headers custom, no JWT; el frontend manda `rol` y `usuario`.
-6. **Parimutuel:** el pozo se reparte entre ganadores; 10% comisión; dividendo dinámico.
-7. **Estados de apuesta:** `vigente` (se puede apostar) / `cerrada` (no).
-8. **Seed vs DB:** el `.sql` solo corre si la base está vacía; después todo va al `.db`.
+| Función | Qué hace |
+|---------|----------|
+| `exportarDatos(db)` | Hace 4 `SELECT` (sin JOIN) y escribe `datos.json` con campo `actualizado` |
+| `sincronizarJson()` | Vuelve a exportar después de cada INSERT/UPDATE en los models |
 
 ---
 
-## Mapa mental rápido
+## `routes/datosRoutes.js`
 
-```
-HTML (vista)
-    ↓
-main.js (lógica cliente)
-    ↓ fetch
-server.js
-    ↓
-routes + middlewares
-    ↓
-controllers
-    ↓
-models
-    ↓
-sistema_apuestas.db
-    ↓
-datos.json (copia legible)
-```
+| Ruta | Qué hace |
+|------|----------|
+| `GET /` | Devuelve el contenido de `datos.json` (montado en `/api/datos`) |
 
 ---
 
-## Endpoints de la API (referencia)
+## `routes/usuarioRoutes.js`
 
-| Método | Ruta | Descripción |
+| Método | Ruta | Controlador |
 |--------|------|-------------|
-| POST | `/api/usuarios/login` | Iniciar sesión |
-| POST | `/api/usuarios/registro` | Registrar usuario |
-| GET | `/api/usuarios` | Listar usuarios |
-| GET | `/api/apuestas/vigentes` | Apuestas vigentes |
-| GET | `/api/apuestas/cerradas` | Apuestas cerradas |
-| GET | `/api/apuestas/:id` | Detalle de apuesta |
-| POST | `/api/apuestas` | Crear apuesta (admin) |
-| PUT | `/api/apuestas/:id/destacar` | Destacar (admin) |
-| PUT | `/api/apuestas/:id/cerrar` | Cerrar apuesta (admin) |
-| POST | `/api/pronosticos/apostar` | Realizar apuesta |
+| POST | `/login` | login |
+| GET | `/` | obtenerTodos |
+
+---
+
+## `routes/apuestaRoutes.js`
+
+| Método | Ruta | Middleware | Controlador |
+|--------|------|------------|-------------|
+| GET | `/vigentes` | — | obtenerVigentes |
+| GET | `/cerradas` | — | obtenerCerradas |
+| GET | `/:apuesta` | — | obtenerPorApuesta |
+| POST | `/` | verificarAdmin | crear |
+| PUT | `/:apuesta/destacar` | verificarAdmin | destacar |
+| PUT | `/:apuesta/quitar-destacada` | verificarAdmin | quitarDestacada |
+| PUT | `/:apuesta/cerrar` | verificarAdmin | cerrar |
+
+---
+
+## `routes/pronosticoRoutes.js`
+
+| Método | Ruta | Middleware | Controlador |
+|--------|------|------------|-------------|
+| POST | `/apostar` | verificarLogin | apostar |
+
+---
+
+## `middlewares/authMiddleware.js`
+
+| Función | Qué hace |
+|---------|----------|
+| `verificarLogin` | Exige header `usuario` (número de persona) |
+| `verificarAdmin` | Exige header `rol: admin` |
+
+No hay JWT ni sesión en servidor; el frontend guarda el usuario en `localStorage`.
+
+---
+
+## `middlewares/errorMiddleware.js`
+
+| Función | Qué hace |
+|---------|----------|
+| `rutaNoEncontrada` | Responde 404 `{ error: "Ruta no encontrada" }` |
+| `manejarErrores` | Responde 500 ante errores no capturados |
+
+---
+
+## `controllers/usuarioController.js`
+
+| Función | Qué hace |
+|---------|----------|
+| `login` | Busca por email, compara clave, devuelve `{ persona, nombre, apellido, email, rol }` |
+| `obtenerTodos` | Lista usuarios (admin y perfiles rápidos en login) |
+
+---
+
+## `controllers/apuestaController.js`
+
+| Función | Qué hace |
+|---------|----------|
+| `obtenerVigentes` | Lista apuestas con estado vigente |
+| `obtenerCerradas` | Lista apuestas FIN o vencidas por fecha |
+| `obtenerPorApuesta` | Una apuesta + pronósticos + apuestas de personas + pozo |
+| `crear` | Inserta apuesta y sus ocurrencias (mínimo 2) |
+| `destacar` | Pone `prioridad = 1` (solo una destacada vigente) |
+| `quitarDestacada` | Pone `prioridad = 0` |
+| `cerrar` | Recibe `ocurrenciaGanadora`, llama al model para FIN + S/N + GAN/PER |
+
+---
+
+## `controllers/pronosticoController.js`
+
+| Función | Qué hace |
+|---------|----------|
+| `apostar` | Valida monto y que la apuesta esté ACT y no vencida; guarda en `Apuestas_personas` |
+
+---
+
+## `models/usuarioModel.js`
+
+| Función | Qué hace |
+|---------|----------|
+| `obtenerTodos` | `SELECT` de `personas` ordenado por nombre |
+| `obtenerPorEmail` | Busca una persona por `mail` |
+| `crear` | `INSERT` en `personas` (solo para carga manual vía seed/SQL, no hay pantalla de registro) |
+
+---
+
+## `models/apuestaModel.js`
+
+| Función | Qué hace |
+|---------|----------|
+| `obtenerTodas` | Todas las apuestas con estado calculado (vigente/cerrada) |
+| `obtenerVigentes` | `estado = ACT` y `fecha_cierre >= hoy` |
+| `obtenerCerradas` | `estado = FIN` o fecha de cierre pasada |
+| `obtenerPorApuesta` | Una fila de `apuestas` por número de apuesta |
+| `crear` | `INSERT` en `apuestas`, devuelve el número generado |
+| `obtenerDestacadaVigente` | La apuesta vigente con `prioridad > 0` |
+| `destacar` | Error si ya hay otra destacada; `UPDATE prioridad = 1` |
+| `quitarDestacada` | `UPDATE prioridad = 0` |
+| `cerrar` | Valida ocurrencia, `FIN`, `resultado` GAN/PER en personas |
+| `obtenerApuestasPersonas` | Filas de `Apuestas_personas` + consultas `WHERE` a persona y detalle |
+
+---
+
+## `models/pronosticoModel.js`
+
+| Función | Qué hace |
+|---------|----------|
+| `calcularPozoNeto` | Suma importes y resta comisión del 10% |
+| `obtenerPorApuesta` | Lista ocurrencias con total apostado y dividendo (sin JOIN) |
+| `crear` | Nueva fila en `Apuestas_detalle` (máx. 10 ocurrencias) |
+| `actualizarDividendo` | Solo llama `sincronizarJson()` (el dividendo se calcula al leer) |
+| `obtenerEstadoApuesta` | Consulta `apuestas` y `Apuestas_detalle` por separado |
+| `apostar` | `INSERT` o suma importe si la persona ya apostó esa ocurrencia |
+
+---
+
+# Frontend — `frontend/js/datos.js`
+
+Capa que **lee el JSON** y prepara los datos para la pantalla.
+
+| Función | Qué hace |
+|---------|----------|
+| `fechaHoy()` | Fecha actual en formato `YYYY-MM-DD` |
+| `apuestaVencidaPorFecha(fechaCierre)` | `true` si la fecha de cierre ya pasó |
+| `estadoApuestaDesdeJson(apuesta)` | Devuelve `vigente` o `cerrada` según estado y fecha |
+| `mapApuesta(apuesta)` | Convierte fila de `apuestas` a objeto con `titulo`, `fechaEvento`, etc. |
+| `calcularPozoBruto(datos, numeroApuesta)` | Suma importes en `Apuestas_personas` |
+| `calcularPozoNeto(datos, numeroApuesta)` | Pozo bruto menos comisión |
+| `obtenerPronosticosDesdeJson(datos, numeroApuesta)` | Ocurrencias con total apostado y dividendo |
+| `obtenerApuestasPersonasDesdeJson(datos, numeroApuesta)` | Apuestas de personas con nombre y descripción |
+| `obtenerApuestaDetalleDesdeJson(datos, numeroApuesta)` | Apuesta completa para una pantalla de detalle |
+| `obtenerUsuariosDesdeJson(datos)` | Lista personas con `persona`, `email`, `rol`, etc. |
+| `obtenerApuestasVigentesDesdeJson(datos)` | Filtra y mapea vigentes |
+| `obtenerApuestasCerradasDesdeJson(datos)` | Filtra y mapea cerradas |
+| `cargarDatos()` | `fetch` a `/api/datos` y guarda en caché |
+| `getDatosCache()` | Devuelve el JSON en memoria |
+| `getUltimaActualizacion()` | Timestamp del último JSON cargado |
+| `obtenerApuestasVigentes()` | Usa caché o recarga y devuelve vigentes |
+| `obtenerApuestasCerradas()` | Igual para cerradas |
+| `obtenerApuestaPorNumero(numeroApuesta)` | Detalle de una apuesta |
+| `obtenerUsuarios()` | Lista de usuarios desde JSON |
+| `iniciarPollingDatos(callback, ms)` | Cada 3 s recarga JSON; si cambió `actualizado`, ejecuta callback |
+
+---
+
+# Frontend — `frontend/js/main.js`
+
+## Inicio y navegación
+
+| Función | Qué hace |
+|---------|----------|
+| `DOMContentLoaded` | Detecta la página y llama al `iniciar*` correspondiente |
+| `iniciarEnlacesNavegacion()` | Clic en logo (`.js-link-home`) y botón Volver → `index.html` |
+| `esPaginaInicio(pagina)` | `true` si es `/` o `index.html` |
+| `obtenerApuestaDesdeUrl()` | Lee `?apuesta=` de la URL o `sessionStorage` |
+| `mostrarErrorApuestaPagina(mensaje)` | Muestra error si no hay apuesta |
+| `actualizarHeader()` | Arma el menú según sesión (login/admin/logout) |
+| `redirigirSiYaLogueado()` | Si ya hay sesión, redirige desde login al index o admin |
+| `verApuesta(numeroApuesta)` | Guarda en session y va a `apuesta.html?apuesta=` |
+| `cerrarSesion()` | Borra `localStorage` y va al index |
+
+## Index
+
+| Función | Qué hace |
+|---------|----------|
+| `iniciarIndex()` | Carga datos, renderiza y activa polling |
+| `renderizarIndex()` | Llama vigentes + cerradas + destacada |
+| `cargarApuestasVigentes()` | Arma cards en `#apuestasVigentes` |
+| `cargarApuestasCerradas()` | Arma cards con resultados GAN/PER |
+| `cargarDestacada()` | Muestra u oculta la sección destacada |
+
+## Login
+
+| Función | Qué hace |
+|---------|----------|
+| `seleccionarPerfilRapido(btn)` | Rellena email/clave del botón de acceso rápido |
+| `cargarPerfilesRapidos()` | Botones desde `obtenerUsuarios()` (JSON) |
+| `iniciarLogin()` | POST login, guarda `usuarioActual` en `localStorage` |
+
+> **Usuarios nuevos:** no hay registro web. Se agregan en `sql/sqlite_seed.sql` o con `INSERT` en la tabla `personas`.
+
+## Detalle y apostar
+
+| Función | Qué hace |
+|---------|----------|
+| `iniciarApuesta()` | Carga detalle desde JSON; si cerrada muestra resultado |
+| `seleccionarPronostico(el, ocurrencia, dividendo)` | Marca opción y actualiza resumen |
+| `actualizarResumen(pronostico, dividendo)` | Calcula ganancia estimada |
+| `apuestaVencida(fechaLimite)` | Compara fecha de cierre con hoy |
+
+## Admin
+
+| Función | Qué hace |
+|---------|----------|
+| `iniciarAdmin()` | Protege ruta, carga tabs, polling |
+| `iniciarTabsAdmin()` | Clic en pestañas con `data-tab` |
+| `iniciarDelegacionAdmin()` | Clic en botones destacar/cerrar vía `data-admin-action` |
+| `manejarAccionAdmin(event)` | Ejecuta destacar, quitar o abrir modal cerrar |
+| `iniciarModalCerrarApuesta()` | Listeners del modal de resultado |
+| `ocultarModalCerrarApuesta()` | Cierra modal y limpia selección |
+| `seleccionarOcurrenciaGanadora(ocurrencia, el)` | Marca opción ganadora en el modal |
+| `mostrarModalCerrarApuesta(numeroApuesta)` | Carga pronósticos y muestra modal |
+| `confirmarCierreApuesta()` | PUT cerrar + recarga datos |
+| `cargarApuestasAdmin()` | Grid de apuestas vigentes con acciones |
+| `cargarApuestasCerradasAdmin()` | Grid cerradas con resultados |
+| `cargarUsuariosAdmin()` | Tabla de usuarios desde JSON |
+| `iniciarCrearApuesta()` | Formulario nueva apuesta + pronósticos dinámicos |
+| `destacarApuesta(numeroApuesta)` | PUT destacar |
+| `quitarDestacadaApuesta(numeroApuesta)` | PUT quitar destacada |
+| `cerrarApuesta(numeroApuesta)` | Abre modal de cierre |
+| `mostrarTab(tabId, tabBtn)` | Cambia pestaña visible en admin |
+
+## Helpers
+
+| Función | Qué hace |
+|---------|----------|
+| `headersAdmin()` | `{ rol: admin }` para rutas admin |
+| `headersAuth()` | `{ usuario: persona }` para apostar |
+| `formatearFecha(fecha)` | Fecha en formato argentino |
+| `formatearMonto(monto)` | `$` con separador de miles |
+| `formatearDividendo(n)` | Número con 2 decimales |
+| `htmlPronosticos(lista, mostrarResultado)` | HTML de pronósticos con badges S/N |
+| `htmlResultadoGanador(ganador)` | HTML del ganador de la apuesta |
+| `htmlApuestasPersonas(lista)` | HTML con GAN/PER por persona |
+
+---
+
+## HTML — reglas importantes
+
+- **No hay** `onclick`, `onchange` ni funciones inline en los `.html`.
+- Los scripts se cargan así: primero `datos.js`, después `main.js`.
+- Los botones usan `id` de DOM (ej: `btnLogin`) o atributos `data-*` (ej: `data-apuesta`, `data-tab`).
+
+---
+
+## Sesión en el navegador
+
+```javascript
+// Al hacer login (guarda persona, no "id")
+localStorage.setItem("usuarioActual", JSON.stringify(data));
+
+// Al ver una apuesta
+sessionStorage.setItem("apuestaSeleccionada", numeroApuesta);
+```
+
+---
+
+## Conceptos para el oral / parcial
+
+1. **Capas:** Routes → Controllers → Models → SQLite.
+2. **Lectura vs escritura:** JSON para leer; API para modificar.
+3. **REST:** GET lee, POST crea, PUT actualiza; códigos 200, 201, 400, 401, 403, 404, 500.
+4. **SQLite:** archivo local; `better-sqlite3`; `?` en prepared statements.
+5. **Sin JOIN:** varias consultas simples + combinar en JavaScript.
+6. **Parimutuel:** pozo compartido; 10% comisión; dividendo dinámico.
+7. **Resultado:** admin cierra → `GAN`/`PER` en `Apuestas_personas`.
+8. **`datos.json`:** espejo de la DB; campo `actualizado` para tiempo real.
+
+---
+
+## Mapa mental
+
+```
+HTML (solo estructura)
+    ↓
+datos.js (lee JSON, calcula)
+main.js (eventos + escrituras API)
+    ↓
+server.js (API + archivos estáticos)
+    ↓
+controllers → models → sistema_apuestas.db
+    ↓
+exportarDatos → datos.json
+```
 
 ---
 
@@ -329,32 +476,14 @@ datos.json (copia legible)
 
 ---
 
-## Cosas a tener en cuenta al estudiar
-
-- **`registro.html`** no tiene formulario de registro real (bug pendiente).
-- Las **contraseñas** están en texto plano (aceptable para demo, no en producción).
-- **`backend/data/`** no va a Git; cada uno genera su base al correr.
-- El admin se identifica con header `rol: admin`, no con un token firmado.
-- **`sistema_apuestas.db`** es la fuente de verdad; **`datos.json`** es solo una copia exportada.
-
----
-
-## Cómo ejecutar (resumen)
-
-Ver archivo **`INSTRUCCIONES.md`** para el paso a paso completo.
-
-**Terminal 1 — Backend:**
+## Cómo ejecutar
 
 ```bash
 cd backend
-npm install
+npm install    # solo la primera vez
 npm start
 ```
 
-**Terminal 2 — Frontend:**
+Abrir **http://localhost:3000**
 
-```bash
-npx serve -l 5500
-```
-
-Abrir **http://localhost:5500** en el navegador.
+Ver **`INSTRUCCIONES.md`** para problemas frecuentes y endpoints.

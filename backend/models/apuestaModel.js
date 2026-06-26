@@ -3,7 +3,7 @@ const { sincronizarJson } = require("../utils/exportarDatos");
 
 const SELECT_APUESTA = `
     SELECT
-        apuesta AS id,
+        apuesta,
         evento AS titulo,
         fecha_evento AS fechaEvento,
         fecha_cierre AS fechaLimite,
@@ -40,8 +40,8 @@ async function obtenerCerradas() {
     `).all();
 }
 
-async function obtenerPorId(id) {
-    return db.prepare(`${SELECT_APUESTA} WHERE apuesta = ?`).get(id);
+async function obtenerPorApuesta(apuesta) {
+    return db.prepare(`${SELECT_APUESTA} WHERE apuesta = ?`).get(apuesta);
 }
 
 async function crear(apuesta) {
@@ -103,12 +103,6 @@ async function cerrar(id, ocurrenciaGanadora) {
     db.prepare(`UPDATE apuestas SET estado = 'FIN' WHERE apuesta = ?`).run(id);
 
     db.prepare(`
-        UPDATE Apuestas_detalle
-        SET ocurrio = CASE WHEN ocurrencia = ? THEN 'S' ELSE 'N' END
-        WHERE apuesta = ?
-    `).run(ocurrenciaGanadora, id);
-
-    db.prepare(`
         UPDATE Apuestas_personas
         SET resultado = CASE WHEN ocurrencia = ? THEN 'GAN' ELSE 'PER' END
         WHERE apuesta = ?
@@ -118,26 +112,44 @@ async function cerrar(id, ocurrenciaGanadora) {
 }
 
 async function obtenerApuestasPersonas(id) {
-    return db.prepare(`
-        SELECT
-            ap.ocurrencia,
-            ap.persona,
-            ap.importe,
-            ap.fecha,
-            ap.resultado,
-            p.nombre,
-            p.apellido,
-            p.mail AS email,
-            d.descripcion
-        FROM Apuestas_personas ap
-        JOIN personas p ON p.persona = ap.persona
-        JOIN Apuestas_detalle d ON d.apuesta = ap.apuesta AND d.ocurrencia = ap.ocurrencia
-        WHERE ap.apuesta = ?
-        ORDER BY ap.fecha DESC
+    const filas = db.prepare(`
+        SELECT ocurrencia, persona, importe, fecha, resultado
+        FROM Apuestas_personas
+        WHERE apuesta = ?
+        ORDER BY fecha DESC
     `).all(id);
+
+    const buscarPersona = db.prepare(`
+        SELECT nombre, apellido, mail
+        FROM personas
+        WHERE persona = ?
+    `);
+
+    const buscarDetalle = db.prepare(`
+        SELECT descripcion
+        FROM Apuestas_detalle
+        WHERE apuesta = ? AND ocurrencia = ?
+    `);
+
+    return filas.map(function(ap) {
+        const persona = buscarPersona.get(ap.persona);
+        const detalle = buscarDetalle.get(id, ap.ocurrencia);
+
+        return {
+            ocurrencia: ap.ocurrencia,
+            persona: ap.persona,
+            importe: ap.importe,
+            fecha: ap.fecha,
+            resultado: ap.resultado,
+            nombre: persona ? persona.nombre : null,
+            apellido: persona ? persona.apellido : null,
+            email: persona ? persona.mail : null,
+            descripcion: detalle ? detalle.descripcion : null
+        };
+    });
 }
 
 module.exports = {
-    obtenerTodas, obtenerVigentes, obtenerCerradas, obtenerPorId,
+    obtenerTodas, obtenerVigentes, obtenerCerradas, obtenerPorApuesta,
     obtenerDestacadaVigente, crear, destacar, quitarDestacada, cerrar, obtenerApuestasPersonas
 };

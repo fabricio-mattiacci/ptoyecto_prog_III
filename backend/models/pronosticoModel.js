@@ -18,27 +18,25 @@ async function obtenerPorApuesta(idApuesta) {
     const pozoNeto = calcularPozoNeto(idApuesta);
 
     const detalles = db.prepare(`
-        SELECT
-            d.apuesta,
-            d.ocurrencia,
-            d.descripcion,
-            d.ocurrio,
-            IFNULL(SUM(p.importe), 0) AS totalApostado
-        FROM Apuestas_detalle d
-        LEFT JOIN Apuestas_personas p
-            ON d.apuesta = p.apuesta AND d.ocurrencia = p.ocurrencia
-        WHERE d.apuesta = ?
-        GROUP BY d.apuesta, d.ocurrencia, d.descripcion, d.ocurrio
-        ORDER BY d.ocurrencia
+        SELECT apuesta, ocurrencia, descripcion
+        FROM Apuestas_detalle
+        WHERE apuesta = ?
+        ORDER BY ocurrencia
     `).all(idApuesta);
 
+    const sumarImporte = db.prepare(`
+        SELECT IFNULL(SUM(importe), 0) AS total
+        FROM Apuestas_personas
+        WHERE apuesta = ? AND ocurrencia = ?
+    `);
+
     return detalles.map(function(d) {
-        const totalApostado = d.totalApostado || 0;
+        const suma = sumarImporte.get(idApuesta, d.ocurrencia);
+        const totalApostado = suma.total || 0;
         return {
-            id: d.ocurrencia,
-            idApuesta: d.apuesta,
+            ocurrencia: d.ocurrencia,
+            apuesta: d.apuesta,
             descripcion: d.descripcion,
-            ocurrio: d.ocurrio,
             totalApostado,
             dividendo: totalApostado > 0 ? pozoNeto / totalApostado : 0
         };
@@ -46,12 +44,12 @@ async function obtenerPorApuesta(idApuesta) {
 }
 
 async function crear(pronostico) {
-    const { idApuesta, descripcion } = pronostico;
+    const { apuesta, descripcion } = pronostico;
     const siguiente = db.prepare(`
         SELECT COALESCE(MAX(ocurrencia), 0) + 1 AS n
         FROM Apuestas_detalle
         WHERE apuesta = ?
-    `).get(idApuesta);
+    `).get(apuesta);
 
     if (siguiente.n > 10) {
         throw new Error("Máximo 10 ocurrencias por apuesta");
@@ -60,7 +58,7 @@ async function crear(pronostico) {
     db.prepare(`
         INSERT INTO Apuestas_detalle (apuesta, ocurrencia, descripcion)
         VALUES (?, ?, ?)
-    `).run(idApuesta, siguiente.n, descripcion);
+    `).run(apuesta, siguiente.n, descripcion);
     sincronizarJson();
 }
 
@@ -69,15 +67,31 @@ async function actualizarDividendo() {
 }
 
 async function obtenerEstadoApuesta(idApuesta, ocurrencia) {
-    return db.prepare(`
-        SELECT
-            a.estado,
-            a.fecha_cierre,
-            CASE WHEN date(a.fecha_cierre) < date('now') THEN 1 ELSE 0 END AS vencida
-        FROM apuestas a
-        JOIN Apuestas_detalle d ON d.apuesta = a.apuesta
-        WHERE a.apuesta = ? AND d.ocurrencia = ?
+    const apuesta = db.prepare(`
+        SELECT estado, fecha_cierre
+        FROM apuestas
+        WHERE apuesta = ?
+    `).get(idApuesta);
+
+    const detalle = db.prepare(`
+        SELECT ocurrencia
+        FROM Apuestas_detalle
+        WHERE apuesta = ? AND ocurrencia = ?
     `).get(idApuesta, ocurrencia);
+
+    if (!apuesta || !detalle) {
+        return null;
+    }
+
+    const vencida = db.prepare(`
+        SELECT CASE WHEN date(?) < date('now') THEN 1 ELSE 0 END AS vencida
+    `).get(apuesta.fecha_cierre);
+
+    return {
+        estado: apuesta.estado,
+        fecha_cierre: apuesta.fecha_cierre,
+        vencida: vencida.vencida
+    };
 }
 
 async function apostar(idApuesta, ocurrencia, persona, importe) {

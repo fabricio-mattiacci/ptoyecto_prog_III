@@ -10,10 +10,10 @@ INSERT INTO apuestas (apuesta, evento, fecha_evento, fecha_cierre, prioridad, co
 VALUES
     (1003, 'Argentina vs Alemania', '2026-06-27', '2026-06-26', 1, 10, 'ACT');
 
-INSERT INTO Apuestas_detalle (apuesta, ocurrencia, descripcion, ocurrio)
+INSERT INTO Apuestas_detalle (apuesta, ocurrencia, descripcion)
 VALUES
-    (1003, 1, 'Argentina', NULL),
-    (1003, 2, 'Alemania', NULL);
+    (1003, 1, 'Argentina'),
+    (1003, 2, 'Alemania');
 
 INSERT INTO Apuestas_personas (apuesta, ocurrencia, persona, importe)
 VALUES

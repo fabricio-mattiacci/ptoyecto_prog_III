@@ -1,30 +1,20 @@
 const API = "http://localhost:3000/api";
 
 let usuarioActual = JSON.parse(localStorage.getItem("usuarioActual")) || null;
-let apuestaCerrarId = null;
+let apuestaCerrarNumero = null;
 let ocurrenciaGanadoraSeleccionada = null;
-
-async function fetchApuestasCerradas() {
-    let res = await fetch(`${API}/apuestas/cerradas`);
-    if (!res.ok) {
-        res = await fetch(`${API}/apuestas/finalizadas`);
-    }
-    if (!res.ok) {
-        throw new Error("No se pudieron cargar las apuestas cerradas");
-    }
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-}
+let pollingDatosId = null;
 
 document.addEventListener("DOMContentLoaded", function() {
     actualizarHeader();
+    iniciarEnlacesNavegacion();
     if (redirigirSiYaLogueado()) return;
 
     document.body.addEventListener("click", function(event) {
-        const btnApuesta = event.target.closest("[data-apuesta-id]");
-        if (btnApuesta && btnApuesta.dataset.apuestaId) {
+        const btnApuesta = event.target.closest("[data-apuesta]");
+        if (btnApuesta && btnApuesta.dataset.apuesta) {
             event.preventDefault();
-            verApuesta(btnApuesta.dataset.apuestaId);
+            verApuesta(btnApuesta.dataset.apuesta);
         }
     });
 
@@ -34,8 +24,6 @@ document.addEventListener("DOMContentLoaded", function() {
         iniciarIndex();
     } else if (pagina.includes("login")) {
         iniciarLogin();
-    } else if (pagina.includes("registro")) {
-        iniciarRegistro();
     } else if (pagina.includes("apuesta")) {
         iniciarApuesta();
     } else if (pagina.includes("admin")) {
@@ -43,22 +31,37 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 
+function iniciarEnlacesNavegacion() {
+    document.querySelectorAll(".js-link-home").forEach(function(el) {
+        el.addEventListener("click", function() {
+            window.location.href = "index.html";
+        });
+    });
+
+    const btnVolver = document.getElementById("btnVolver");
+    if (btnVolver) {
+        btnVolver.addEventListener("click", function() {
+            window.location.href = "index.html";
+        });
+    }
+}
+
 function esPaginaInicio(pagina) {
     return pagina === "/" || pagina.endsWith("/index.html") || pagina.endsWith("/index");
 }
 
-function obtenerIdApuestaDesdeUrl() {
+function obtenerApuestaDesdeUrl() {
     const params = new URLSearchParams(window.location.search);
-    const idUrl = params.get("id");
-    if (idUrl) return idUrl;
+    const apuestaUrl = params.get("apuesta");
+    if (apuestaUrl) return apuestaUrl;
 
     if (window.location.hash) {
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-        const idHash = hashParams.get("id");
-        if (idHash) return idHash;
+        const apuestaHash = hashParams.get("apuesta");
+        if (apuestaHash) return apuestaHash;
     }
 
-    return sessionStorage.getItem("apuestaId");
+    return sessionStorage.getItem("apuestaSeleccionada");
 }
 
 function mostrarErrorApuestaPagina(mensaje) {
@@ -78,21 +81,38 @@ function actualizarHeader() {
 
     if (usuarioActual) {
         const nombreCompleto = usuarioActual.nombre + (usuarioActual.apellido ? " " + usuarioActual.apellido : "");
-        const btnAdmin = usuarioActual.rol === "admin"
-            ? `<button class="btn btn-outline" onclick="window.location.href='admin.html'">Admin</button>`
-            : "";
+        nav.innerHTML = "";
 
-        nav.innerHTML = `
-            <span class="header-usuario">👤 ${nombreCompleto}</span>
-            ${btnAdmin}
-            <button class="btn btn-outline" id="btnLogout">Cerrar Sesión</button>
-        `;
+        const spanUsuario = document.createElement("span");
+        spanUsuario.className = "header-usuario";
+        spanUsuario.textContent = "👤 " + nombreCompleto;
+        nav.appendChild(spanUsuario);
 
-        document.getElementById("btnLogout").addEventListener("click", cerrarSesion);
+        if (usuarioActual.rol === "admin") {
+            const btnAdmin = document.createElement("button");
+            btnAdmin.className = "btn btn-outline";
+            btnAdmin.textContent = "Admin";
+            btnAdmin.addEventListener("click", function() {
+                window.location.href = "admin.html";
+            });
+            nav.appendChild(btnAdmin);
+        }
+
+        const btnLogout = document.createElement("button");
+        btnLogout.className = "btn btn-outline";
+        btnLogout.id = "btnLogout";
+        btnLogout.textContent = "Cerrar Sesión";
+        btnLogout.addEventListener("click", cerrarSesion);
+        nav.appendChild(btnLogout);
     } else {
-        nav.innerHTML = `
-            <button class="btn btn-primary" onclick="window.location.href='login.html'">Iniciar Sesión</button>
-        `;
+        nav.innerHTML = "";
+        const btnLogin = document.createElement("button");
+        btnLogin.className = "btn btn-primary";
+        btnLogin.textContent = "Iniciar Sesión";
+        btnLogin.addEventListener("click", function() {
+            window.location.href = "login.html";
+        });
+        nav.appendChild(btnLogin);
     }
 }
 
@@ -100,7 +120,7 @@ function redirigirSiYaLogueado() {
     if (!usuarioActual) return false;
 
     const pagina = window.location.pathname;
-    if (pagina.includes("login") || pagina.includes("registro")) {
+    if (pagina.includes("login")) {
         window.location.href = usuarioActual.rol === "admin" ? "admin.html" : "index.html";
         return true;
     }
@@ -109,6 +129,14 @@ function redirigirSiYaLogueado() {
 
 /* ─── INDEX ─── */
 async function iniciarIndex() {
+    await cargarDatos();
+    await renderizarIndex();
+
+    if (pollingDatosId) clearInterval(pollingDatosId);
+    pollingDatosId = iniciarPollingDatos(renderizarIndex);
+}
+
+async function renderizarIndex() {
     await cargarApuestasVigentes();
     await cargarApuestasCerradas();
     await cargarDestacada();
@@ -116,8 +144,7 @@ async function iniciarIndex() {
 
 async function cargarApuestasVigentes() {
     try {
-        const res = await fetch(`${API}/apuestas/vigentes`);
-        const apuestas = await res.json();
+        const apuestas = await obtenerApuestasVigentes();
 
         const contenedor = document.getElementById("apuestasVigentes");
         contenedor.innerHTML = "";
@@ -128,8 +155,7 @@ async function cargarApuestasVigentes() {
         }
 
         for (const apuesta of apuestas) {
-            const resP = await fetch(`${API}/apuestas/${apuesta.id}`);
-            const detalle = await resP.json();
+            const detalle = await obtenerApuestaPorNumero(apuesta.apuesta);
 
             const card = document.createElement("div");
             card.classList.add("apuesta-card");
@@ -144,7 +170,7 @@ async function cargarApuestasVigentes() {
                 <div class="apuesta-pronosticos">
                     ${htmlPronosticos(detalle.pronosticos)}
                 </div>
-                <button type="button" class="btn btn-primary" data-apuesta-id="${detalle.id}">Ver apuesta</button>
+                <button type="button" class="btn btn-primary" data-apuesta="${detalle.apuesta}">Ver apuesta</button>
             `;
             contenedor.appendChild(card);
         }
@@ -158,7 +184,7 @@ async function cargarApuestasCerradas() {
     if (!contenedor) return;
 
     try {
-        const apuestas = await fetchApuestasCerradas();
+        const apuestas = await obtenerApuestasCerradas();
         contenedor.innerHTML = "";
 
         if (apuestas.length === 0) {
@@ -167,10 +193,9 @@ async function cargarApuestasCerradas() {
         }
 
         for (const apuesta of apuestas) {
-            const resP = await fetch(`${API}/apuestas/${apuesta.id}`);
-            const detalle = await resP.json();
+            const detalle = await obtenerApuestaPorNumero(apuesta.apuesta);
 
-            const ganador = detalle.pronosticos.find(function(p) { return p.ocurrio === "S"; });
+            const ganador = obtenerGanadorDesdeDetalle(detalle);
 
             const card = document.createElement("div");
             card.classList.add("apuesta-card", "finalizada");
@@ -184,10 +209,10 @@ async function cargarApuestasCerradas() {
                 </div>
                 ${htmlResultadoGanador(ganador)}
                 <div class="apuesta-pronosticos">
-                    ${htmlPronosticos(detalle.pronosticos, true)}
+                    ${htmlPronosticos(detalle.pronosticos, true, ocurrenciaGanadoraDesdeDetalle(detalle))}
                 </div>
                 ${htmlApuestasPersonas(detalle.apuestasPersonas)}
-                <button type="button" class="btn btn-outline" data-apuesta-id="${detalle.id}">Ver detalle</button>
+                <button type="button" class="btn btn-outline" data-apuesta="${detalle.apuesta}">Ver detalle</button>
             `;
             contenedor.appendChild(card);
         }
@@ -202,9 +227,8 @@ async function cargarDestacada() {
     if (!seccion) return;
 
     try {
-        const res = await fetch(`${API}/apuestas/vigentes`);
-        const apuestas = await res.json();
-        const destacada = apuestas.find(a => a.destacada);
+        const apuestas = await obtenerApuestasVigentes();
+        const destacada = apuestas.find(function(a) { return a.destacada; });
 
         if (!destacada) {
             seccion.style.display = "none";
@@ -213,8 +237,7 @@ async function cargarDestacada() {
 
         seccion.style.display = "block";
 
-        const resP = await fetch(`${API}/apuestas/${destacada.id}`);
-        const detalle = await resP.json();
+        const detalle = await obtenerApuestaPorNumero(destacada.apuesta);
 
         document.querySelector(".destacada-titulo").textContent = detalle.titulo;
         document.querySelector(".destacada-info").innerHTML = `
@@ -232,7 +255,7 @@ async function cargarDestacada() {
 
         const btnDestacada = document.getElementById("btnApostarDestacada");
         if (btnDestacada) {
-            btnDestacada.dataset.apuestaId = detalle.id;
+            btnDestacada.dataset.apuesta = detalle.apuesta;
         }
     } catch (error) {
         console.error("Error cargando destacada:", error);
@@ -260,10 +283,10 @@ async function cargarPerfilesRapidos() {
     if (!contenedor) return;
 
     try {
-        const res = await fetch(`${API}/usuarios`);
-        const usuarios = await res.json();
+        await cargarDatos();
+        const usuarios = await obtenerUsuarios();
 
-        if (!res.ok || !Array.isArray(usuarios) || usuarios.length === 0) {
+        if (!Array.isArray(usuarios) || usuarios.length === 0) {
             if (seccion) seccion.style.display = "none";
             return;
         }
@@ -342,77 +365,25 @@ function iniciarLogin() {
     });
 }
 
-/* ─── REGISTRO ─── */
-function iniciarRegistro() {
-    const btnRegistro = document.getElementById("btnRegistro");
-    if (!btnRegistro) return;
-
-    btnRegistro.addEventListener("click", async function() {
-        const nombre = document.getElementById("nombre").value.trim();
-        const apellido = document.getElementById("apellido").value.trim();
-        const fechaNacimiento = document.getElementById("fechaNacimiento").value;
-        const dni = document.getElementById("dni").value.trim();
-        const email = document.getElementById("email").value.trim();
-        const telefono = document.getElementById("telefono").value.trim();
-        const password = document.getElementById("password").value.trim();
-        const confirmarPassword = document.getElementById("confirmarPassword").value.trim();
-        const errorDiv = document.getElementById("errorRegistro");
-
-        if (!nombre || !apellido || !fechaNacimiento || !email || !password) {
-            errorDiv.textContent = "Completá todos los campos obligatorios";
-            errorDiv.style.display = "block";
-            return;
-        }
-
-        if (password !== confirmarPassword) {
-            errorDiv.textContent = "Las contraseñas no coinciden";
-            errorDiv.style.display = "block";
-            return;
-        }
-
-        try {
-            const res = await fetch(`${API}/usuarios/registro`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nombre, apellido, email, password, fechaNacimiento, dni, telefono })
-            });
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                errorDiv.textContent = data.error;
-                errorDiv.style.display = "block";
-                return;
-            }
-
-            window.location.href = "login.html";
-
-        } catch (error) {
-            errorDiv.textContent = "Error de conexión con el servidor";
-            errorDiv.style.display = "block";
-        }
-    });
-}
-
 /* ─── DETALLE APUESTA ─── */
 async function iniciarApuesta() {
-    const id = obtenerIdApuestaDesdeUrl();
+    const numeroApuesta = obtenerApuestaDesdeUrl();
 
-    if (!id) {
+    if (!numeroApuesta) {
         mostrarErrorApuestaPagina("No se encontró la apuesta seleccionada.");
         return;
     }
 
-    sessionStorage.setItem("apuestaId", String(id));
+    sessionStorage.setItem("apuestaSeleccionada", String(numeroApuesta));
 
     let soloLectura = false;
 
     try {
-        const res = await fetch(`${API}/apuestas/${id}`);
-        const apuesta = await res.json();
+        await cargarDatos();
+        const apuesta = await obtenerApuestaPorNumero(numeroApuesta);
 
-        if (!res.ok || apuesta.error) {
-            mostrarErrorApuestaPagina(apuesta.error || "No se pudo cargar la apuesta.");
+        if (!apuesta) {
+            mostrarErrorApuestaPagina("No se pudo cargar la apuesta.");
             return;
         }
 
@@ -423,7 +394,7 @@ async function iniciarApuesta() {
         }
 
         document.getElementById("apuestaTitulo").textContent = apuesta.titulo;
-        const ganador = apuesta.pronosticos.find(function(p) { return p.ocurrio === "S"; });
+        const ganador = obtenerGanadorDesdeDetalle(apuesta);
         document.querySelector(".apuesta-datos").innerHTML = `
             <span>📅 Fecha evento: <strong>${formatearFecha(apuesta.fechaEvento)}</strong></span>
             <span>⏰ Cierra: <strong>${formatearFecha(apuesta.fechaLimite)}</strong></span>
@@ -437,7 +408,7 @@ async function iniciarApuesta() {
         if (apuesta.estado === "cerrada") {
             const tituloPronosticos = document.querySelector(".pronosticos-seccion h3");
             if (tituloPronosticos) tituloPronosticos.textContent = "Resultado de la apuesta";
-            lista.innerHTML = htmlPronosticos(apuesta.pronosticos, true);
+            lista.innerHTML = htmlPronosticos(apuesta.pronosticos, true, ocurrenciaGanadoraDesdeDetalle(apuesta));
             const resultadoPersonas = document.getElementById("resultadoPersonas");
             if (resultadoPersonas) {
                 resultadoPersonas.innerHTML = htmlApuestasPersonas(apuesta.apuestasPersonas);
@@ -456,7 +427,7 @@ async function iniciarApuesta() {
                     </div>
                 `;
                 div.addEventListener("click", function() {
-                    seleccionarPronostico(div, p.id, p.dividendo);
+                    seleccionarPronostico(div, p.ocurrencia, p.dividendo);
                 });
                 lista.appendChild(div);
             });
@@ -489,11 +460,11 @@ async function iniciarApuesta() {
                 return;
             }
 
-            const idPronostico = btnApostar.dataset.idPronostico;
+            const ocurrencia = btnApostar.dataset.ocurrencia;
             const monto = parseFloat(document.getElementById("montoApuesta").value);
             const errorDiv = document.getElementById("errorApuesta");
 
-            if (!idPronostico) {
+            if (!ocurrencia) {
                 errorDiv.textContent = "Seleccioná un pronóstico";
                 errorDiv.style.display = "block";
                 return;
@@ -510,9 +481,9 @@ async function iniciarApuesta() {
                     method: "POST",
                     headers: headersAuth(),
                     body: JSON.stringify({
-                        idUsuario: usuarioActual.id,
-                        idPronostico: idPronostico,
-                        idApuesta: id,
+                        persona: usuarioActual.persona,
+                        ocurrencia: ocurrencia,
+                        apuesta: numeroApuesta,
                         monto: monto
                     })
                 });
@@ -526,7 +497,8 @@ async function iniciarApuesta() {
                 }
 
                 alert("¡Apuesta realizada con éxito!");
-                window.location.href = `apuesta.html?id=${id}`;
+                await cargarDatos();
+                window.location.href = `apuesta.html?apuesta=${numeroApuesta}`;
 
             } catch (error) {
                 errorDiv.textContent = "Error de conexión con el servidor";
@@ -536,7 +508,7 @@ async function iniciarApuesta() {
     }
 }
 
-function seleccionarPronostico(elemento, id, dividendo) {
+function seleccionarPronostico(elemento, ocurrencia, dividendo) {
     document.querySelectorAll(".pronostico-opcion").forEach(function(el) {
         el.classList.remove("seleccionado");
     });
@@ -545,7 +517,7 @@ function seleccionarPronostico(elemento, id, dividendo) {
 
     const descripcion = elemento.querySelector(".pronostico-descripcion").textContent;
     document.getElementById("pronosticoSeleccionado").value = descripcion;
-    document.getElementById("btnApostar").dataset.idPronostico = id;
+    document.getElementById("btnApostar").dataset.ocurrencia = ocurrencia;
 
     actualizarResumen(descripcion, dividendo + "x");
 }
@@ -569,11 +541,53 @@ async function iniciarAdmin() {
         return;
     }
 
+    await cargarDatos();
     await cargarApuestasAdmin();
     await cargarApuestasCerradasAdmin();
     await cargarUsuariosAdmin();
     iniciarCrearApuesta();
     iniciarModalCerrarApuesta();
+    iniciarTabsAdmin();
+    iniciarDelegacionAdmin();
+
+    if (pollingDatosId) clearInterval(pollingDatosId);
+    pollingDatosId = iniciarPollingDatos(async function() {
+        await cargarApuestasAdmin();
+        await cargarApuestasCerradasAdmin();
+        await cargarUsuariosAdmin();
+    });
+}
+
+function iniciarTabsAdmin() {
+    document.querySelectorAll(".admin-tabs .tab").forEach(function(tab) {
+        tab.addEventListener("click", function() {
+            mostrarTab(tab.dataset.tab, tab);
+        });
+    });
+}
+
+function iniciarDelegacionAdmin() {
+    const gridVigentes = document.getElementById("gridApuestasAdmin");
+    const gridCerradas = document.getElementById("gridApuestasCerradas");
+
+    if (gridVigentes) {
+        gridVigentes.addEventListener("click", manejarAccionAdmin);
+    }
+    if (gridCerradas) {
+        gridCerradas.addEventListener("click", manejarAccionAdmin);
+    }
+}
+
+function manejarAccionAdmin(event) {
+    const btn = event.target.closest("[data-admin-action]");
+    if (!btn) return;
+
+    const numeroApuesta = btn.dataset.apuesta;
+    const accion = btn.dataset.adminAction;
+
+    if (accion === "destacar") destacarApuesta(numeroApuesta);
+    else if (accion === "quitar-destacada") quitarDestacadaApuesta(numeroApuesta);
+    else if (accion === "cerrar") cerrarApuesta(numeroApuesta);
 }
 
 function iniciarModalCerrarApuesta() {
@@ -594,7 +608,7 @@ function iniciarModalCerrarApuesta() {
 function ocultarModalCerrarApuesta() {
     const modal = document.getElementById("modalCerrarApuesta");
     if (modal) modal.style.display = "none";
-    apuestaCerrarId = null;
+    apuestaCerrarNumero = null;
     ocurrenciaGanadoraSeleccionada = null;
 }
 
@@ -608,17 +622,16 @@ function seleccionarOcurrenciaGanadora(ocurrencia, elemento) {
     if (btnConfirmar) btnConfirmar.disabled = false;
 }
 
-async function mostrarModalCerrarApuesta(id) {
+async function mostrarModalCerrarApuesta(numeroApuesta) {
     try {
-        const resDetalle = await fetch(`${API}/apuestas/${id}`);
-        const detalle = await resDetalle.json();
+        const detalle = await obtenerApuestaPorNumero(numeroApuesta);
 
-        if (!resDetalle.ok || !detalle.pronosticos || detalle.pronosticos.length === 0) {
+        if (!detalle || !detalle.pronosticos || detalle.pronosticos.length === 0) {
             alert("No se pudo cargar los pronósticos de la apuesta");
             return;
         }
 
-        apuestaCerrarId = id;
+        apuestaCerrarNumero = numeroApuesta;
         ocurrenciaGanadoraSeleccionada = null;
 
         document.getElementById("modalCerrarTitulo").textContent = detalle.titulo;
@@ -630,11 +643,11 @@ async function mostrarModalCerrarApuesta(id) {
             const opcion = document.createElement("label");
             opcion.className = "modal-opcion";
             opcion.innerHTML = `
-                <input type="radio" name="ocurrenciaGanadora" value="${p.id}">
-                <span><strong>${p.descripcion}</strong> (ocurrencia ${p.id})</span>
+                <input type="radio" name="ocurrenciaGanadora" value="${p.ocurrencia}">
+                <span><strong>${p.descripcion}</strong></span>
             `;
             opcion.addEventListener("click", function() {
-                seleccionarOcurrenciaGanadora(p.id, opcion);
+                seleccionarOcurrenciaGanadora(p.ocurrencia, opcion);
             });
             contenedor.appendChild(opcion);
         });
@@ -649,13 +662,13 @@ async function mostrarModalCerrarApuesta(id) {
 }
 
 async function confirmarCierreApuesta() {
-    if (!apuestaCerrarId || !ocurrenciaGanadoraSeleccionada) {
+    if (!apuestaCerrarNumero || !ocurrenciaGanadoraSeleccionada) {
         alert("Seleccioná la opción ganadora");
         return;
     }
 
     try {
-        const res = await fetch(`${API}/apuestas/${apuestaCerrarId}/cerrar`, {
+        const res = await fetch(`${API}/apuestas/${apuestaCerrarNumero}/cerrar`, {
             method: "PUT",
             headers: headersAdmin(),
             body: JSON.stringify({ ocurrenciaGanadora: ocurrenciaGanadoraSeleccionada })
@@ -669,6 +682,7 @@ async function confirmarCierreApuesta() {
 
         ocultarModalCerrarApuesta();
         alert(data.mensaje || "Apuesta cerrada y resultado registrado");
+        await cargarDatos();
         await cargarApuestasAdmin();
         await cargarApuestasCerradasAdmin();
     } catch (error) {
@@ -678,8 +692,7 @@ async function confirmarCierreApuesta() {
 
 async function cargarApuestasAdmin() {
     try {
-        const resV = await fetch(`${API}/apuestas/vigentes`);
-        const vigentes = await resV.json();
+        const vigentes = await obtenerApuestasVigentes();
 
         const grid = document.getElementById("gridApuestasAdmin");
         grid.innerHTML = "";
@@ -692,9 +705,9 @@ async function cargarApuestasAdmin() {
             let btnDestacar = "";
 
             if (apuesta.destacada) {
-                btnDestacar = `<button class="btn btn-secondary btn-small" onclick="quitarDestacadaApuesta(${apuesta.id})">☆ Quitar destacada</button>`;
+                btnDestacar = `<button type="button" class="btn btn-secondary btn-small" data-admin-action="quitar-destacada" data-apuesta="${apuesta.apuesta}">☆ Quitar destacada</button>`;
             } else if (!hayDestacada) {
-                btnDestacar = `<button class="btn btn-warning btn-small" onclick="destacarApuesta(${apuesta.id})">⭐ Destacar</button>`;
+                btnDestacar = `<button type="button" class="btn btn-warning btn-small" data-admin-action="destacar" data-apuesta="${apuesta.apuesta}">⭐ Destacar</button>`;
             }
 
             const card = document.createElement("div");
@@ -708,7 +721,7 @@ async function cargarApuestasAdmin() {
                 </div>
                 <div class="admin-acciones">
                     ${btnDestacar}
-                    <button class="btn btn-danger btn-small" onclick="cerrarApuesta(${apuesta.id})">🏆 Cerrar y definir resultado</button>
+                    <button type="button" class="btn btn-danger btn-small" data-admin-action="cerrar" data-apuesta="${apuesta.apuesta}">🏆 Cerrar y definir resultado</button>
                 </div>
             `;
             grid.appendChild(card);
@@ -724,7 +737,7 @@ async function cargarApuestasCerradasAdmin() {
     if (!grid) return;
 
     try {
-        const cerradas = await fetchApuestasCerradas();
+        const cerradas = await obtenerApuestasCerradas();
         grid.innerHTML = "";
 
         if (cerradas.length === 0) {
@@ -733,10 +746,9 @@ async function cargarApuestasCerradasAdmin() {
         }
 
         for (const apuesta of cerradas) {
-            const resP = await fetch(`${API}/apuestas/${apuesta.id}`);
-            const detalle = await resP.json();
-            const ganador = detalle.pronosticos.find(function(p) { return p.ocurrio === "S"; });
-            const sinResultado = !ganador;
+            const detalle = await obtenerApuestaPorNumero(apuesta.apuesta);
+            const ganador = obtenerGanadorDesdeDetalle(detalle);
+            const sinResultado = detalle.estadoDb !== "FIN";
 
             const card = document.createElement("div");
             card.classList.add("apuesta-card", "admin-card", "finalizada");
@@ -750,10 +762,10 @@ async function cargarApuestasCerradasAdmin() {
                 </div>
                 ${sinResultado ? `<p class="modal-ayuda">El admin debe definir qué opción ganó para registrar GAN/PER.</p>` : htmlResultadoGanador(ganador)}
                 <div class="apuesta-pronosticos">
-                    ${htmlPronosticos(detalle.pronosticos, !sinResultado)}
+                    ${htmlPronosticos(detalle.pronosticos, !sinResultado, ocurrenciaGanadoraDesdeDetalle(detalle))}
                 </div>
                 ${sinResultado ? "" : htmlApuestasPersonas(detalle.apuestasPersonas)}
-                ${sinResultado ? `<div class="admin-acciones"><button class="btn btn-danger btn-small" onclick="cerrarApuesta(${detalle.id})">🏆 Definir resultado</button></div>` : ""}
+                ${sinResultado ? `<div class="admin-acciones"><button type="button" class="btn btn-danger btn-small" data-admin-action="cerrar" data-apuesta="${detalle.apuesta}">🏆 Definir resultado</button></div>` : ""}
             `;
             grid.appendChild(card);
         }
@@ -766,8 +778,7 @@ async function cargarApuestasCerradasAdmin() {
 
 async function cargarUsuariosAdmin() {
     try {
-        const res = await fetch(`${API}/usuarios`);
-        const usuarios = await res.json();
+        const usuarios = await obtenerUsuarios();
 
         const tbody = document.querySelector(".tabla-usuarios tbody");
         tbody.innerHTML = "";
@@ -837,6 +848,7 @@ function iniciarCrearApuesta() {
                 }
 
                 alert(data.mensaje);
+                await cargarDatos();
                 window.location.reload();
 
             } catch (error) {
@@ -846,9 +858,9 @@ function iniciarCrearApuesta() {
     }
 }
 
-async function destacarApuesta(id) {
+async function destacarApuesta(numeroApuesta) {
     try {
-        const res = await fetch(`${API}/apuestas/${id}/destacar`, {
+        const res = await fetch(`${API}/apuestas/${numeroApuesta}/destacar`, {
             method: "PUT",
             headers: headersAdmin()
         });
@@ -860,15 +872,16 @@ async function destacarApuesta(id) {
         }
 
         alert(data.mensaje || "Apuesta destacada");
+        await cargarDatos();
         await cargarApuestasAdmin();
     } catch (error) {
         alert("Error de conexión con el servidor");
     }
 }
 
-async function quitarDestacadaApuesta(id) {
+async function quitarDestacadaApuesta(numeroApuesta) {
     try {
-        const res = await fetch(`${API}/apuestas/${id}/quitar-destacada`, {
+        const res = await fetch(`${API}/apuestas/${numeroApuesta}/quitar-destacada`, {
             method: "PUT",
             headers: headersAdmin()
         });
@@ -880,20 +893,19 @@ async function quitarDestacadaApuesta(id) {
         }
 
         alert(data.mensaje || "Destacada quitada");
+        await cargarDatos();
         await cargarApuestasAdmin();
     } catch (error) {
         alert("Error de conexión con el servidor");
     }
 }
 
-async function cerrarApuesta(id) {
-    await mostrarModalCerrarApuesta(id);
+async function cerrarApuesta(numeroApuesta) {
+    await mostrarModalCerrarApuesta(numeroApuesta);
 }
 
-window.cerrarApuesta = cerrarApuesta;
-
 /* ─── TABS ADMIN ─── */
-function mostrarTab(tabId) {
+function mostrarTab(tabId, tabBtn) {
     document.querySelectorAll(".tab-contenido").forEach(function(tab) {
         tab.style.display = "none";
     });
@@ -903,7 +915,7 @@ function mostrarTab(tabId) {
     });
 
     document.getElementById(tabId).style.display = "block";
-    event.target.classList.add("activo");
+    if (tabBtn) tabBtn.classList.add("activo");
 
     if (tabId === "apuestasCerradas") {
         cargarApuestasCerradasAdmin();
@@ -923,17 +935,45 @@ function headersAdmin() {
 function headersAuth() {
     return {
         "Content-Type": "application/json",
-        "usuario": usuarioActual ? String(usuarioActual.id) : ""
+        "usuario": usuarioActual ? String(usuarioActual.persona) : ""
     };
 }
 
-function verApuesta(id) {
-    if (!id) return;
-    sessionStorage.setItem("apuestaId", String(id));
-    window.location.href = `apuesta.html?id=${encodeURIComponent(id)}`;
+function verApuesta(numeroApuesta) {
+    if (!numeroApuesta) return;
+    sessionStorage.setItem("apuestaSeleccionada", String(numeroApuesta));
+    window.location.href = `apuesta.html?apuesta=${encodeURIComponent(numeroApuesta)}`;
 }
 
-window.verApuesta = verApuesta;
+function obtenerGanadorDesdeDetalle(detalle) {
+    if (!detalle || !detalle.apuestasPersonas) return null;
+
+    const apGanadora = detalle.apuestasPersonas.find(function(ap) {
+        return ap.resultado === "GAN";
+    });
+
+    if (!apGanadora) return null;
+
+    if (detalle.pronosticos) {
+        const pronostico = detalle.pronosticos.find(function(p) {
+            return p.ocurrencia === apGanadora.ocurrencia;
+        });
+        if (pronostico) return pronostico;
+    }
+
+    return { descripcion: apGanadora.descripcion, ocurrencia: apGanadora.ocurrencia };
+}
+
+function apuestaConResultado(detalle) {
+    return detalle.apuestasPersonas && detalle.apuestasPersonas.some(function(ap) {
+        return ap.resultado === "GAN" || ap.resultado === "PER";
+    });
+}
+
+function ocurrenciaGanadoraDesdeDetalle(detalle) {
+    const ganador = obtenerGanadorDesdeDetalle(detalle);
+    return ganador ? ganador.ocurrencia : null;
+}
 
 function apuestaVencida(fechaLimite) {
     if (!fechaLimite) return false;
@@ -958,15 +998,15 @@ function formatearDividendo(dividendo) {
     return valor > 0 ? valor.toFixed(2) : "0";
 }
 
-function htmlPronosticos(pronosticos, mostrarResultado) {
+function htmlPronosticos(pronosticos, mostrarResultado, ocurrenciaGanadora) {
     if (!pronosticos || pronosticos.length === 0) return "";
 
     return pronosticos.map(function(p) {
         let badge = "";
-        if (mostrarResultado && p.ocurrio === "S") {
-            badge = `<span class="badge ganador">Ganó (S)</span>`;
-        } else if (mostrarResultado && p.ocurrio === "N") {
-            badge = `<span class="badge perdedor">No (N)</span>`;
+        if (mostrarResultado && ocurrenciaGanadora && p.ocurrencia === ocurrenciaGanadora) {
+            badge = `<span class="badge ganador">Ganó</span>`;
+        } else if (mostrarResultado && ocurrenciaGanadora) {
+            badge = `<span class="badge perdedor">Perdió</span>`;
         }
 
         return `
@@ -986,7 +1026,6 @@ function htmlResultadoGanador(ganador) {
     return `
         <div class="apuesta-resultado">
             <strong>Resultado:</strong> ${ganador.descripcion}
-            <span class="badge ganador">ocurrio: S</span>
         </div>
     `;
 }

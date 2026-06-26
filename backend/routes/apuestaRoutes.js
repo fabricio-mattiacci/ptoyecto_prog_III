@@ -7,12 +7,12 @@ const { verificarLogin, verificarAdmin } = require("../middlewares/authMiddlewar
 router.get("/vigentes", apuestaController.obtenerVigentes);
 router.get("/cerradas", apuestaController.obtenerCerradas);
 router.get("/finalizadas", apuestaController.obtenerCerradas);
-router.get("/:id", apuestaController.obtenerPorId);
+router.get("/:apuesta", apuestaController.obtenerPorApuesta);
 
 // Rutas solo para admin
 router.post("/", verificarAdmin, apuestaController.crear);
-router.put("/:id/destacar", verificarAdmin, apuestaController.destacar);
-router.put("/:id/quitar-destacada", verificarAdmin, apuestaController.quitarDestacada);
-router.put("/:id/cerrar", verificarAdmin, apuestaController.cerrar);
+router.put("/:apuesta/destacar", verificarAdmin, apuestaController.destacar);
+router.put("/:apuesta/quitar-destacada", verificarAdmin, apuestaController.quitarDestacada);
+router.put("/:apuesta/cerrar", verificarAdmin, apuestaController.cerrar);
 
 module.exports = router;

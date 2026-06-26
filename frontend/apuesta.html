@@ -11,7 +11,7 @@
     <!-- HEADER -->
     <header class="header">
         <div class="header-logo">
-            <h1 onclick="window.location.href='index.html'" style="cursor:pointer">🎯 ApostApp</h1>
+            <h1 class="js-link-home" style="cursor:pointer">🎯 ApostApp</h1>
         </div>
         <nav class="header-nav"></nav>
     </header>
@@ -21,7 +21,7 @@
 
         <!-- INFO PRINCIPAL -->
         <div class="apuesta-detalle-header">
-            <button class="btn btn-outline btn-small" onclick="window.location.href='index.html'">
+            <button type="button" class="btn btn-outline btn-small" id="btnVolver">
                 ← Volver
             </button>
             <div class="apuesta-detalle-info">
@@ -39,29 +39,7 @@
             <!-- PRONÓSTICOS -->
             <div class="pronosticos-seccion">
                 <h3>Seleccioná tu pronóstico</h3>
-                <div class="pronosticos-lista" id="pronosticosList">
-
-                    <div class="pronostico-opcion" onclick="seleccionarPronostico(this, 1)">
-                        <div class="pronostico-info">
-                            <p class="pronostico-descripcion">Gana Jannik Sinner</p>
-                            <p class="pronostico-apostadores">18 apostadores</p>
-                        </div>
-                        <div class="pronostico-dividendo">
-                            <span class="dividendo">1.63x</span>
-                        </div>
-                    </div>
-
-                    <div class="pronostico-opcion" onclick="seleccionarPronostico(this, 2)">
-                        <div class="pronostico-info">
-                            <p class="pronostico-descripcion">Gana Carlos Alcaraz</p>
-                            <p class="pronostico-apostadores">11 apostadores</p>
-                        </div>
-                        <div class="pronostico-dividendo">
-                            <span class="dividendo">2.00x</span>
-                        </div>
-                    </div>
-
-                </div>
+                <div class="pronosticos-lista" id="pronosticosList"></div>
                 <div id="resultadoPersonas"></div>
             </div>
 
@@ -120,6 +98,7 @@
         <p>© 2026 ApostApp — UTN FRSN — Programación III</p>
     </footer>
 
+    <script src="js/datos.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

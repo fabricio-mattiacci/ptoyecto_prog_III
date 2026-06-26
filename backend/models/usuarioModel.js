@@ -3,7 +3,7 @@ const { sincronizarJson } = require("../utils/exportarDatos");
 
 const SELECT_PERSONA = `
     SELECT
-        persona AS id,
+        persona,
         nombre,
         apellido,
         mail AS email,

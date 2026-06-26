@@ -10,39 +10,12 @@ async function login(req, res) {
         }
 
         res.json({
-            id: usuario.id,
+            persona: usuario.persona,
             nombre: usuario.nombre,
             apellido: usuario.apellido,
             email: usuario.email,
             rol: usuario.rol
         });
-
-    } catch (error) {
-        res.status(500).json({ error: "Error en el servidor" });
-    }
-}
-
-async function registro(req, res) {
-    try {
-        const { nombre, apellido, email, password, fechaNacimiento, dni, telefono } = req.body;
-
-        // Verificar mayor de edad
-        const hoy = new Date();
-        const nacimiento = new Date(fechaNacimiento);
-        const edad = hoy.getFullYear() - nacimiento.getFullYear();
-
-        if (edad < 18) {
-            return res.status(400).json({ error: "Debés ser mayor de 18 años" });
-        }
-
-        // Verificar si el email ya existe
-        const existente = await usuarioModel.obtenerPorEmail(email);
-        if (existente) {
-            return res.status(400).json({ error: "El email ya está registrado" });
-        }
-
-        await usuarioModel.crear({ nombre, apellido, email, password, fechaNacimiento, dni, telefono });
-        res.status(201).json({ mensaje: "Usuario registrado correctamente" });
 
     } catch (error) {
         res.status(500).json({ error: "Error en el servidor" });
@@ -58,4 +31,4 @@ async function obtenerTodos(req, res) {
     }
 }
 
-module.exports = { login, registro, obtenerTodos };
+module.exports = { login, obtenerTodos };

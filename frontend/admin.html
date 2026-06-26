@@ -11,7 +11,7 @@
     <!-- HEADER -->
     <header class="header">
         <div class="header-logo">
-            <h1 onclick="window.location.href='index.html'" style="cursor:pointer">🎯 ApostApp</h1>
+            <h1 class="js-link-home" style="cursor:pointer">🎯 ApostApp</h1>
         </div>
         <nav class="header-nav"></nav>
     </header>
@@ -20,16 +20,16 @@
 
         <!-- TABS DE NAVEGACIÓN -->
         <div class="admin-tabs">
-            <button class="tab activo" onclick="mostrarTab('apuestasVigentes')">
+            <button type="button" class="tab activo" data-tab="apuestasVigentes">
                 Apuestas Vigentes
             </button>
-            <button class="tab" onclick="mostrarTab('apuestasCerradas')">
+            <button type="button" class="tab" data-tab="apuestasCerradas">
                 Apuestas Cerradas
             </button>
-            <button class="tab" onclick="mostrarTab('crearApuesta')">
+            <button type="button" class="tab" data-tab="crearApuesta">
                 Crear Apuesta
             </button>
-            <button class="tab" onclick="mostrarTab('usuarios')">
+            <button type="button" class="tab" data-tab="usuarios">
                 Usuarios
             </button>
         </div>
@@ -132,7 +132,7 @@
         <div class="modal-card">
             <h3>Cerrar apuesta y definir resultado</h3>
             <p id="modalCerrarTitulo" class="modal-titulo-apuesta"></p>
-            <p class="modal-ayuda">El admin debe indicar qué opción ganó. Se guardará en la base de datos como <strong>ocurrio S/N</strong> y <strong>GAN/PER</strong> por persona.</p>
+            <p class="modal-ayuda">El admin debe indicar qué opción ganó. Se guardará en la base de datos como <strong>GAN</strong> o <strong>PER</strong> por persona.</p>
             <div id="modalOpcionesGanador" class="modal-opciones"></div>
             <div class="modal-acciones">
                 <button type="button" class="btn btn-outline" id="btnModalCancelar">Cancelar</button>
@@ -145,6 +145,7 @@
         <p>© 2026 ApostApp — UTN FRSN — Programación III</p>
     </footer>
 
+    <script src="js/datos.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

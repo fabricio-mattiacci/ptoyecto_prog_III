@@ -19,14 +19,15 @@ async function obtenerCerradas(req, res) {
     }
 }
 
-async function obtenerPorId(req, res) {
+async function obtenerPorApuesta(req, res) {
     try {
-        const apuesta = await apuestaModel.obtenerPorId(req.params.id);
+        const numeroApuesta = req.params.apuesta;
+        const apuesta = await apuestaModel.obtenerPorApuesta(numeroApuesta);
         if (!apuesta) {
             return res.status(404).json({ error: "Apuesta no encontrada" });
         }
-        const pronosticos = await pronosticoModel.obtenerPorApuesta(req.params.id);
-        const apuestasPersonas = await apuestaModel.obtenerApuestasPersonas(req.params.id);
+        const pronosticos = await pronosticoModel.obtenerPorApuesta(numeroApuesta);
+        const apuestasPersonas = await apuestaModel.obtenerApuestasPersonas(numeroApuesta);
         const pozoBruto = pronosticos.reduce((total, p) => total + (p.totalApostado || 0), 0);
         res.json({ ...apuesta, pozoBruto, pronosticos, apuestasPersonas });
     } catch (error) {
@@ -42,10 +43,10 @@ async function crear(req, res) {
             return res.status(400).json({ error: "Datos incompletos" });
         }
 
-        const idApuesta = await apuestaModel.crear({ titulo, fechaEvento, fechaLimite });
+        const numeroApuesta = await apuestaModel.crear({ titulo, fechaEvento, fechaLimite });
 
         for (const descripcion of pronosticos) {
-            await pronosticoModel.crear({ idApuesta, descripcion });
+            await pronosticoModel.crear({ apuesta: numeroApuesta, descripcion });
         }
 
         res.status(201).json({ mensaje: "Apuesta creada correctamente" });
@@ -57,7 +58,7 @@ async function crear(req, res) {
 
 async function destacar(req, res) {
     try {
-        await apuestaModel.destacar(req.params.id);
+        await apuestaModel.destacar(req.params.apuesta);
         res.json({ mensaje: "Apuesta destacada" });
     } catch (error) {
         if (error.code === "DESTACADA_EXISTENTE") {
@@ -69,7 +70,7 @@ async function destacar(req, res) {
 
 async function quitarDestacada(req, res) {
     try {
-        await apuestaModel.quitarDestacada(req.params.id);
+        await apuestaModel.quitarDestacada(req.params.apuesta);
         res.json({ mensaje: "Apuesta ya no está destacada" });
     } catch (error) {
         res.status(500).json({ error: "Error en el servidor" });
@@ -84,7 +85,7 @@ async function cerrar(req, res) {
             return res.status(400).json({ error: "Debés indicar la ocurrencia ganadora" });
         }
 
-        await apuestaModel.cerrar(req.params.id, ocurrenciaGanadora);
+        await apuestaModel.cerrar(req.params.apuesta, ocurrenciaGanadora);
         res.json({ mensaje: "Apuesta cerrada y resultado registrado" });
     } catch (error) {
         if (error.code === "OCURRENCIA_INVALIDA") {
@@ -94,4 +95,4 @@ async function cerrar(req, res) {
     }
 }
 
-module.exports = { obtenerVigentes, obtenerCerradas, obtenerPorId, crear, destacar, quitarDestacada, cerrar };
+module.exports = { obtenerVigentes, obtenerCerradas, obtenerPorApuesta, crear, destacar, quitarDestacada, cerrar };

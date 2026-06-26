@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS Apuestas_detalle (
     apuesta         INTEGER NOT NULL,
     ocurrencia      INTEGER NOT NULL,
     descripcion     TEXT NOT NULL,
-    ocurrio         TEXT,                            -- C(1): 'S' = ocurrió, 'N' = no ocurrió
     PRIMARY KEY (apuesta, ocurrencia)
 );
 
