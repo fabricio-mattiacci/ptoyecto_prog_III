@@ -35,38 +35,17 @@ function mapApuesta(apuesta) {
     };
 }
 
-function calcularPozoBruto(datos, numeroApuesta) {
-    return datos.Apuestas_personas
-        .filter(function(ap) { return ap.apuesta === numeroApuesta; })
-        .reduce(function(sum, ap) { return sum + (ap.importe || 0); }, 0);
-}
-
-function calcularPozoNeto(datos, numeroApuesta) {
-    const apuesta = datos.apuestas.find(function(a) { return a.apuesta === numeroApuesta; });
-    const pozoBruto = calcularPozoBruto(datos, numeroApuesta);
-    const comision = apuesta ? apuesta.comision : 10;
-    return pozoBruto - (pozoBruto * comision / 100);
-}
-
 function obtenerPronosticosDesdeJson(datos, numeroApuesta) {
-    const pozoNeto = calcularPozoNeto(datos, numeroApuesta);
-
     return datos.Apuestas_detalle
         .filter(function(d) { return d.apuesta === numeroApuesta; })
         .sort(function(a, b) { return a.ocurrencia - b.ocurrencia; })
         .map(function(d) {
-            const totalApostado = datos.Apuestas_personas
-                .filter(function(ap) {
-                    return ap.apuesta === numeroApuesta && ap.ocurrencia === d.ocurrencia;
-                })
-                .reduce(function(sum, ap) { return sum + (ap.importe || 0); }, 0);
-
             return {
                 ocurrencia: d.ocurrencia,
                 apuesta: d.apuesta,
                 descripcion: d.descripcion,
-                totalApostado: totalApostado,
-                dividendo: totalApostado > 0 ? pozoNeto / totalApostado : 0
+                totalApostado: d.totalApostado || 0,
+                dividendo: d.dividendo || 0
             };
         });
 }
@@ -103,7 +82,7 @@ function obtenerApuestaDetalleDesdeJson(datos, numeroApuesta) {
     const apuesta = mapApuesta(raw);
     const pronosticos = obtenerPronosticosDesdeJson(datos, codigoApuesta);
     const apuestasPersonas = obtenerApuestasPersonasDesdeJson(datos, codigoApuesta);
-    const pozoBruto = calcularPozoBruto(datos, codigoApuesta);
+    const pozoBruto = raw.pozoBruto || 0;
 
     return Object.assign({}, apuesta, {
         pozoBruto: pozoBruto,

@@ -49,7 +49,7 @@ Navegador (HTML + CSS + JS)
 | `login.html` | Login + perfiles rápidos |
 | `apuesta.html` | Detalle, elegir pronóstico, apostar o ver resultado |
 | `admin.html` | Panel admin con 4 pestañas + modal de cierre |
-| `js/datos.js` | Descarga `datos.json`, filtra y calcula dividendos/pozos en el navegador |
+| `js/datos.js` | Descarga `datos.json` y arma la info para la pantalla (pozos y dividendos ya vienen calculados) |
 | `js/main.js` | Eventos, renderizado, login, admin, apostar (escrituras vía API) |
 | `css/styles.css` | Estilos de la aplicación |
 
@@ -70,7 +70,8 @@ Navegador (HTML + CSS + JS)
 | `controllers/` | Validaciones HTTP y respuestas JSON |
 | `models/` | SQL con `WHERE` (sin JOIN) |
 | `middlewares/` | Auth por headers y errores 404/500 |
-| `utils/exportarDatos.js` | Escribe `datos.json` |
+| `utils/calcularTotales.js` | `SUM(importe)` con `WHERE` para pozo y totales por ocurrencia |
+| `utils/exportarDatos.js` | Escribe `datos.json` con totales ya calculados |
 | `data/` | `.db` y `.json` generados al correr |
 
 ---
@@ -166,11 +167,26 @@ Al cargar el módulo también llama `exportarDatos(db)` para generar el primer `
 
 ---
 
+## `utils/calcularTotales.js`
+
+Consultas de agregación (sin JOIN), como el ejemplo del profe con `SUM` en lugar de `MAX`:
+
+| Función | SQL equivalente |
+|---------|-----------------|
+| `calcularPozoBruto(db, apuestaId)` | `SELECT SUM(importe) FROM Apuestas_personas WHERE apuesta = ?` |
+| `calcularPozoNeto(db, apuestaId)` | Pozo bruto menos `%` comisión de `apuestas` |
+| `sumarImporteOcurrencia(db, apuestaId, ocurrencia)` | `SUM(importe)` filtrando apuesta + ocurrencia |
+| `obtenerPronosticosConTotales(db, apuestaId)` | Detalle + `totalApostado` + `dividendo` por opción |
+
+Fórmula: `dividendo = pozoNeto / totalApostado` (si nadie apostó → 0).
+
+---
+
 ## `utils/exportarDatos.js`
 
 | Función | Qué hace |
 |---------|----------|
-| `exportarDatos(db)` | Hace 4 `SELECT` (sin JOIN) y escribe `datos.json` con campo `actualizado` |
+| `exportarDatos(db)` | Exporta tablas y agrega `pozoBruto`/`pozoNeto` en `apuestas`, `totalApostado`/`dividendo` en `Apuestas_detalle` |
 | `sincronizarJson()` | Vuelve a exportar después de cada INSERT/UPDATE en los models |
 
 ---
@@ -296,10 +312,9 @@ No hay JWT ni sesión en servidor; el frontend guarda el usuario en `localStorag
 
 | Función | Qué hace |
 |---------|----------|
-| `calcularPozoNeto` | Suma importes y resta comisión del 10% |
-| `obtenerPorApuesta` | Lista ocurrencias con total apostado y dividendo (sin JOIN) |
-| `crear` | Nueva fila en `Apuestas_detalle` (máx. 10 ocurrencias) |
-| `actualizarDividendo` | Solo llama `sincronizarJson()` (el dividendo se calcula al leer) |
+| `obtenerPorApuesta` | Delega en `calcularTotales.obtenerPronosticosConTotales` |
+| `crear` | Nueva fila en `Apuestas_detalle` con `MAX(ocurrencia) + 1` |
+| `actualizarDividendo` | Solo llama `sincronizarJson()` (los totales se recalculan al exportar) |
 | `obtenerEstadoApuesta` | Consulta `apuestas` y `Apuestas_detalle` por separado |
 | `apostar` | `INSERT` o suma importe si la persona ya apostó esa ocurrencia |
 
@@ -315,9 +330,7 @@ Capa que **lee el JSON** y prepara los datos para la pantalla.
 | `apuestaVencidaPorFecha(fechaCierre)` | `true` si la fecha de cierre ya pasó |
 | `estadoApuestaDesdeJson(apuesta)` | Devuelve `vigente` o `cerrada` según estado y fecha |
 | `mapApuesta(apuesta)` | Convierte fila de `apuestas` a objeto con `titulo`, `fechaEvento`, etc. |
-| `calcularPozoBruto(datos, numeroApuesta)` | Suma importes en `Apuestas_personas` |
-| `calcularPozoNeto(datos, numeroApuesta)` | Pozo bruto menos comisión |
-| `obtenerPronosticosDesdeJson(datos, numeroApuesta)` | Ocurrencias con total apostado y dividendo |
+| `obtenerPronosticosDesdeJson(datos, numeroApuesta)` | Lee `totalApostado` y `dividendo` ya calculados en `Apuestas_detalle` |
 | `obtenerApuestasPersonasDesdeJson(datos, numeroApuesta)` | Apuestas de personas con nombre y descripción |
 | `obtenerApuestaDetalleDesdeJson(datos, numeroApuesta)` | Apuesta completa para una pantalla de detalle |
 | `obtenerUsuariosDesdeJson(datos)` | Lista personas con `persona`, `email`, `rol`, etc. |
@@ -445,7 +458,7 @@ sessionStorage.setItem("apuestaSeleccionada", numeroApuesta);
 5. **Sin JOIN:** varias consultas simples + combinar en JavaScript.
 6. **Parimutuel:** pozo compartido; 10% comisión; dividendo dinámico.
 7. **Resultado:** admin cierra → `GAN`/`PER` en `Apuestas_personas`.
-8. **`datos.json`:** espejo de la DB; campo `actualizado` para tiempo real.
+8. **`datos.json`:** espejo de la DB + pozos y dividendos calculados con `SUM` al exportar.
 
 ---
 
@@ -454,14 +467,14 @@ sessionStorage.setItem("apuestaSeleccionada", numeroApuesta);
 ```
 HTML (solo estructura)
     ↓
-datos.js (lee JSON, calcula)
+datos.js (lee JSON con totales ya calculados)
 main.js (eventos + escrituras API)
     ↓
 server.js (API + archivos estáticos)
     ↓
 controllers → models → sistema_apuestas.db
     ↓
-exportarDatos → datos.json
+exportarDatos + calcularTotales → datos.json
 ```
 
 ---

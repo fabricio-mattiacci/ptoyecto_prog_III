@@ -120,9 +120,10 @@ En login hay **acceso rápido** con botones que cargan email y contraseña.
 ## Cómo funciona la lectura de datos
 
 1. Cada cambio en SQLite actualiza `backend/data/datos.json` automáticamente.
-2. El frontend **lee** desde `GET /api/datos` (no usa GET de apuestas/usuarios para listar).
-3. Cada 3 segundos el index y el admin revisan si cambió el campo `actualizado` y recargan la pantalla.
-4. Las **escrituras** (login, apostar, crear, cerrar) van por la API REST.
+2. Al exportar, el backend calcula pozos y dividendos con `SUM(importe)` en SQL (ver `backend/utils/calcularTotales.js`).
+3. El frontend **lee** desde `GET /api/datos` (no usa GET de apuestas/usuarios para listar).
+4. Cada 3 segundos el index y el admin revisan si cambió el campo `actualizado` y recargan la pantalla.
+5. Las **escrituras** (login, apostar, crear, cerrar) van por la API REST.
 
 ---
 

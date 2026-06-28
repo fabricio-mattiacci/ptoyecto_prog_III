@@ -1,5 +1,10 @@
 const fs = require("fs");
 const path = require("path");
+const {
+    calcularPozoBruto,
+    calcularPozoNeto,
+    sumarImporteOcurrencia
+} = require("./calcularTotales");
 
 const JSON_PATH = path.join(__dirname, "..", "data", "datos.json");
 
@@ -9,6 +14,35 @@ function exportarDatos(db) {
         fs.mkdirSync(dataDir, { recursive: true });
     }
 
+    const apuestasRaw = db.prepare(`
+        SELECT apuesta, evento, fecha_evento, fecha_cierre, prioridad, comision, estado
+        FROM apuestas
+        ORDER BY apuesta
+    `).all();
+
+    const apuestas = apuestasRaw.map(function(a) {
+        const pozoBruto = calcularPozoBruto(db, a.apuesta);
+        return Object.assign({}, a, {
+            pozoBruto: pozoBruto,
+            pozoNeto: calcularPozoNeto(db, a.apuesta)
+        });
+    });
+
+    const detalleRaw = db.prepare(`
+        SELECT apuesta, ocurrencia, descripcion
+        FROM Apuestas_detalle
+        ORDER BY apuesta, ocurrencia
+    `).all();
+
+    const Apuestas_detalle = detalleRaw.map(function(d) {
+        const pozoNeto = calcularPozoNeto(db, d.apuesta);
+        const totalApostado = sumarImporteOcurrencia(db, d.apuesta, d.ocurrencia);
+        return Object.assign({}, d, {
+            totalApostado: totalApostado,
+            dividendo: totalApostado > 0 ? pozoNeto / totalApostado : 0
+        });
+    });
+
     const datos = {
         actualizado: new Date().toISOString(),
         personas: db.prepare(`
@@ -16,16 +50,8 @@ function exportarDatos(db) {
             FROM personas
             ORDER BY persona
         `).all(),
-        apuestas: db.prepare(`
-            SELECT apuesta, evento, fecha_evento, fecha_cierre, prioridad, comision, estado
-            FROM apuestas
-            ORDER BY apuesta
-        `).all(),
-        Apuestas_detalle: db.prepare(`
-            SELECT apuesta, ocurrencia, descripcion
-            FROM Apuestas_detalle
-            ORDER BY apuesta, ocurrencia
-        `).all(),
+        apuestas: apuestas,
+        Apuestas_detalle: Apuestas_detalle,
         Apuestas_personas: db.prepare(`
             SELECT apuesta, ocurrencia, persona, fecha, importe, resultado
             FROM Apuestas_personas

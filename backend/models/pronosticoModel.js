@@ -1,46 +1,9 @@
 const { db } = require("../config/db");
 const { sincronizarJson } = require("../utils/exportarDatos");
-
-function calcularPozoNeto(apuestaId) {
-    const apuesta = db.prepare(`SELECT comision FROM apuestas WHERE apuesta = ?`).get(apuestaId);
-    const pozo = db.prepare(`
-        SELECT IFNULL(SUM(importe), 0) AS total
-        FROM Apuestas_personas
-        WHERE apuesta = ?
-    `).get(apuestaId);
-
-    const pozoBruto = pozo.total || 0;
-    const comision = apuesta?.comision ?? 10;
-    return pozoBruto - (pozoBruto * comision / 100);
-}
+const { obtenerPronosticosConTotales } = require("../utils/calcularTotales");
 
 async function obtenerPorApuesta(idApuesta) {
-    const pozoNeto = calcularPozoNeto(idApuesta);
-
-    const detalles = db.prepare(`
-        SELECT apuesta, ocurrencia, descripcion
-        FROM Apuestas_detalle
-        WHERE apuesta = ?
-        ORDER BY ocurrencia
-    `).all(idApuesta);
-
-    const sumarImporte = db.prepare(`
-        SELECT IFNULL(SUM(importe), 0) AS total
-        FROM Apuestas_personas
-        WHERE apuesta = ? AND ocurrencia = ?
-    `);
-
-    return detalles.map(function(d) {
-        const suma = sumarImporte.get(idApuesta, d.ocurrencia);
-        const totalApostado = suma.total || 0;
-        return {
-            ocurrencia: d.ocurrencia,
-            apuesta: d.apuesta,
-            descripcion: d.descripcion,
-            totalApostado,
-            dividendo: totalApostado > 0 ? pozoNeto / totalApostado : 0
-        };
-    });
+    return obtenerPronosticosConTotales(db, idApuesta);
 }
 
 async function crear(pronostico) {

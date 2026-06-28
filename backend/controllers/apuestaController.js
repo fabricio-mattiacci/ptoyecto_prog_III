@@ -1,5 +1,7 @@
 const apuestaModel = require("../models/apuestaModel");
 const pronosticoModel = require("../models/pronosticoModel");
+const { calcularPozoBruto } = require("../utils/calcularTotales");
+const { db } = require("../config/db");
 
 async function obtenerVigentes(req, res) {
     try {
@@ -28,7 +30,7 @@ async function obtenerPorApuesta(req, res) {
         }
         const pronosticos = await pronosticoModel.obtenerPorApuesta(numeroApuesta);
         const apuestasPersonas = await apuestaModel.obtenerApuestasPersonas(numeroApuesta);
-        const pozoBruto = pronosticos.reduce((total, p) => total + (p.totalApostado || 0), 0);
+        const pozoBruto = calcularPozoBruto(db, Number(numeroApuesta));
         res.json({ ...apuesta, pozoBruto, pronosticos, apuestasPersonas });
     } catch (error) {
         res.status(500).json({ error: "Error en el servidor" });
