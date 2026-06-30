@@ -1,3 +1,10 @@
+/*
+ * apuestaModel.js — Tabla apuestas + consultas relacionadas
+ * Calcula estado vigente/cerrada en SQL con CASE y fechas.
+ * cerrar: pone FIN y asigna GAN/PER en Apuestas_personas según ocurrencia ganadora.
+ * obtenerApuestasPersonas: sin JOIN — consultas WHERE separadas a personas y detalle.
+ */
+
 const { db } = require("../config/db");
 const { sincronizarJson } = require("../utils/exportarDatos");
 
@@ -62,6 +69,7 @@ async function obtenerDestacadaVigente() {
     `).get();
 }
 
+/** Solo una apuesta destacada a la vez entre las vigentes */
 async function destacar(id) {
     const otraDestacada = db.prepare(`
         SELECT apuesta FROM apuestas
@@ -88,6 +96,7 @@ async function quitarDestacada(id) {
     sincronizarJson();
 }
 
+/** Admin define ganador: FIN + resultado GAN en ganadores, PER en el resto */
 async function cerrar(id, ocurrenciaGanadora) {
     const detalle = db.prepare(`
         SELECT ocurrencia FROM Apuestas_detalle
@@ -111,6 +120,7 @@ async function cerrar(id, ocurrenciaGanadora) {
     sincronizarJson();
 }
 
+/** Filas de quién apostó; enriquece con nombre y descripción sin JOIN */
 async function obtenerApuestasPersonas(id) {
     const filas = db.prepare(`
         SELECT ocurrencia, persona, importe, fecha, resultado

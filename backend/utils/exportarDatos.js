@@ -1,3 +1,15 @@
+/*
+ * exportarDatos.js — SINCRONIZA SQLite → datos.json
+ * ─────────────────────────────────────────────────
+ * Después de cada INSERT/UPDATE (apostar, crear, cerrar, etc.)
+ * los models llaman sincronizarJson().
+ *
+ * El JSON incluye las 4 tablas + campos calculados:
+ * - apuestas: pozoBruto, pozoNeto
+ * - Apuestas_detalle: totalApostado, dividendo
+ * - actualizado: timestamp para que el frontend detecte cambios
+ */
+
 const fs = require("fs");
 const path = require("path");
 const {

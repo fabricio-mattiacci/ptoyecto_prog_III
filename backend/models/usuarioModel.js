@@ -1,3 +1,8 @@
+/*
+ * usuarioModel.js — Tabla personas
+ * SELECT con WHERE (sin JOIN). estado ADM = admin, ACT = usuario normal.
+ */
+
 const { db } = require("../config/db");
 const { sincronizarJson } = require("../utils/exportarDatos");
 

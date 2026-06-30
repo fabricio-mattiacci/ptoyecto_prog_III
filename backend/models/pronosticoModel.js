@@ -1,3 +1,10 @@
+/*
+ * pronosticoModel.js — Tablas Apuestas_detalle y Apuestas_personas
+ * - crear: nueva opción (ocurrencia) con MAX(ocurrencia)+1
+ * - apostar: INSERT o suma importe si la persona ya apostó esa opción
+ * - obtenerPorApuesta: totales vía calcularTotales.js
+ */
+
 const { db } = require("../config/db");
 const { sincronizarJson } = require("../utils/exportarDatos");
 const { obtenerPronosticosConTotales } = require("../utils/calcularTotales");
@@ -6,6 +13,7 @@ async function obtenerPorApuesta(idApuesta) {
     return obtenerPronosticosConTotales(db, idApuesta);
 }
 
+/** Agrega una fila en Apuestas_detalle (máximo 10 opciones por apuesta). */
 async function crear(pronostico) {
     const { apuesta, descripcion } = pronostico;
     const siguiente = db.prepare(`
@@ -25,10 +33,12 @@ async function crear(pronostico) {
     sincronizarJson();
 }
 
+/** Tras apostar, recalcula y reescribe datos.json */
 async function actualizarDividendo() {
     sincronizarJson();
 }
 
+/** Comprueba si la apuesta acepta apuestas (ACT y fecha_cierre >= hoy). */
 async function obtenerEstadoApuesta(idApuesta, ocurrencia) {
     const apuesta = db.prepare(`
         SELECT estado, fecha_cierre
@@ -57,6 +67,7 @@ async function obtenerEstadoApuesta(idApuesta, ocurrencia) {
     };
 }
 
+/** Guarda cuánto apostó una persona a una ocurrencia (puede sumar si repite). */
 async function apostar(idApuesta, ocurrencia, persona, importe) {
     db.prepare(`
         INSERT INTO Apuestas_personas (apuesta, ocurrencia, persona, importe, fecha)

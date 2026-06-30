@@ -1,5 +1,11 @@
+/*
+ * pronosticoController.js — Registrar una apuesta de un usuario
+ * Valida monto, que la apuesta esté ACT y no vencida, luego INSERT en Apuestas_personas.
+ */
+
 const pronosticoModel = require("../models/pronosticoModel");
 
+/** POST body: { persona, ocurrencia, apuesta, monto } */
 async function apostar(req, res) {
     try {
         const { persona, ocurrencia, apuesta, monto } = req.body;

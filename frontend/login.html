@@ -1,3 +1,15 @@
+<!--
+  login.html — INICIO DE SESIÓN
+  ─────────────────────────────
+  Qué hace:
+  - Formulario email + contraseña → POST /api/usuarios/login.
+  - Botones de ACCESO RÁPIDO (admin, Tomás, Fabricio) cargan email/clave de prueba.
+  - Si el login es correcto, guarda el usuario en localStorage y redirige:
+      admin → admin.html | usuario → index.html
+  - Si ya estás logueado y entrás acá, te manda al home o al admin.
+
+  No hay registro: los usuarios se cargan en la base (seed).
+-->
 <!DOCTYPE html>
 <html lang="es">
 <head>

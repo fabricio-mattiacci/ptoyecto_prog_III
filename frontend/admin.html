@@ -1,3 +1,16 @@
+<!--
+  admin.html — PANEL DE ADMINISTRACIÓN
+  ───────────────────────────────────
+  Solo accesible si el usuario logueado tiene rol admin (estado ADM en la DB).
+
+  4 pestañas (tabs):
+  1. Apuestas vigentes — ver, destacar o quitar destacada.
+  2. Apuestas cerradas — ver resultado; botón "Definir resultado" si falta GAN/PER.
+  3. Crear apuesta — título, fechas y al menos 2 pronósticos → POST /api/apuestas.
+  4. Usuarios — tabla con personas de la base (solo lectura).
+
+  Modal al cerrar: el admin elige qué opción ganó → PUT /api/apuestas/:id/cerrar.
+-->
 <!DOCTYPE html>
 <html lang="es">
 <head>

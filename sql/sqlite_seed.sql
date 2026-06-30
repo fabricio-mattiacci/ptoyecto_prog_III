@@ -1,4 +1,10 @@
--- Datos iniciales - Modelo del TP
+-- ═══════════════════════════════════════════════════════════════
+-- sqlite_seed.sql — DATOS DE PRUEBA (solo si la tabla personas está vacía)
+-- ═══════════════════════════════════════════════════════════════
+-- Admin: admin@email.com / admin123
+-- Tomás:  tomas@email.com  / user123
+-- Fabricio: fabricio@email.com / user123
+-- Apuesta de ejemplo: Argentina vs Alemania con apuestas de Tomás
 
 INSERT INTO personas (persona, apellido, nombre, dni, fecha_nacimiento, mail, telefono, estado, clave)
 VALUES

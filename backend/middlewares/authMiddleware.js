@@ -1,3 +1,12 @@
+/*
+ * authMiddleware.js — “Autenticación” por headers HTTP
+ * ────────────────────────────────────────────────────
+ * No hay JWT ni sesión en servidor. El frontend envía:
+ * - header "usuario" → persona (número) para apostar
+ * - header "rol" → "admin" para rutas de administración
+ */
+
+/** Requiere header usuario (POST apostar). */
 function verificarLogin(req, res, next) {
     const usuario = req.headers["usuario"];
 
@@ -8,6 +17,7 @@ function verificarLogin(req, res, next) {
     next();
 }
 
+/** Requiere header rol = admin (crear/cerrar/destacar apuestas). */
 function verificarAdmin(req, res, next) {
     const rol = req.headers["rol"];
 

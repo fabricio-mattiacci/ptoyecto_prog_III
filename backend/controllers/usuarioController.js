@@ -1,5 +1,11 @@
+/*
+ * usuarioController.js — Login y listado de personas
+ * Valida email/clave contra la tabla personas (sin hash, modelo del TP).
+ */
+
 const usuarioModel = require("../models/usuarioModel");
 
+/** POST body: { email, password } → devuelve persona, nombre, rol, etc. */
 async function login(req, res) {
     try {
         const { email, password } = req.body;

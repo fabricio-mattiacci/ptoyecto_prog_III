@@ -1,3 +1,13 @@
+/*
+ * calcularTotales.js — SUM(importe) EN SQL (sin JOIN)
+ * ───────────────────────────────────────────────────
+ * Como el ejemplo del profe con MAX, pero usando SUM para:
+ * - Pozo bruto de una apuesta (suma de todos los importes).
+ * - Total apostado por cada ocurrencia (opción).
+ * - Dividendo = pozoNeto / totalApostado en esa opción.
+ */
+
+/** Suma todos los importes de Apuestas_personas para una apuesta. */
 function calcularPozoBruto(db, apuestaId) {
     const fila = db.prepare(`
         SELECT IFNULL(SUM(importe), 0) AS total
@@ -8,6 +18,7 @@ function calcularPozoBruto(db, apuestaId) {
     return fila.total || 0;
 }
 
+/** Pozo bruto menos el % de comisión de la tabla apuestas. */
 function calcularPozoNeto(db, apuestaId) {
     const apuesta = db.prepare(`
         SELECT comision FROM apuestas WHERE apuesta = ?
@@ -18,6 +29,7 @@ function calcularPozoNeto(db, apuestaId) {
     return pozoBruto - (pozoBruto * comision / 100);
 }
 
+/** Suma importes solo de una ocurrencia (una opción del pronóstico). */
 function sumarImporteOcurrencia(db, apuestaId, ocurrencia) {
     const fila = db.prepare(`
         SELECT IFNULL(SUM(importe), 0) AS total
@@ -28,6 +40,7 @@ function sumarImporteOcurrencia(db, apuestaId, ocurrencia) {
     return fila.total || 0;
 }
 
+/** Lista opciones de una apuesta con totalApostado y dividendo calculados. */
 function obtenerPronosticosConTotales(db, apuestaId) {
     const pozoNeto = calcularPozoNeto(db, apuestaId);
 

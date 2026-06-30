@@ -1,10 +1,32 @@
+/*
+ * main.js — LÓGICA DEL FRONTEND (eventos + escrituras API)
+ * ─────────────────────────────────────────────────────────
+ * Se carga en todas las páginas después de datos.js.
+ *
+ * LECTURAS  → funciones de datos.js (desde JSON).
+ * ESCRITURAS → fetch a /api/... (login, apostar, crear apuesta, cerrar, destacar).
+ *
+ * Sesión: localStorage.usuarioActual { persona, nombre, email, rol }.
+ * Sin onclick en HTML: todo con addEventListener y data-* attributes.
+ *
+ * Al cargar detecta la página y llama:
+ *   index.html  → iniciarIndex()
+ *   login.html  → iniciarLogin()
+ *   apuesta.html → iniciarApuesta()
+ *   admin.html  → iniciarAdmin()
+ */
+
 const API = "http://localhost:3000/api";
 
+// Usuario logueado (persiste al cerrar el navegador)
 let usuarioActual = JSON.parse(localStorage.getItem("usuarioActual")) || null;
+// Estado del modal de cierre en admin
 let apuestaCerrarNumero = null;
 let ocurrenciaGanadoraSeleccionada = null;
+// ID del setInterval de polling (index/admin)
 let pollingDatosId = null;
 
+/* ─── ARRANQUE: detecta qué página es y enlaza eventos globales ─── */
 document.addEventListener("DOMContentLoaded", function() {
     actualizarHeader();
     iniciarEnlacesNavegacion();
@@ -31,6 +53,9 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 
+/* ─── NAVEGACIÓN COMÚN ─── */
+
+/** Logo y botón Volver → index.html */
 function iniciarEnlacesNavegacion() {
     document.querySelectorAll(".js-link-home").forEach(function(el) {
         el.addEventListener("click", function() {
@@ -46,10 +71,12 @@ function iniciarEnlacesNavegacion() {
     }
 }
 
+/** true si estamos en la home (raíz o index.html). */
 function esPaginaInicio(pagina) {
     return pagina === "/" || pagina.endsWith("/index.html") || pagina.endsWith("/index");
 }
 
+/** Número de apuesta: ?apuesta= en URL, hash o sessionStorage. */
 function obtenerApuestaDesdeUrl() {
     const params = new URLSearchParams(window.location.search);
     const apuestaUrl = params.get("apuesta");
@@ -74,6 +101,7 @@ function mostrarErrorApuestaPagina(mensaje) {
 }
 
 /* ─── HEADER ─── */
+/** Pinta nav: nombre de usuario, botón Admin (si aplica), Login o Cerrar sesión. */
 function actualizarHeader() {
     usuarioActual = JSON.parse(localStorage.getItem("usuarioActual")) || null;
     const nav = document.querySelector(".header-nav");
@@ -116,6 +144,7 @@ function actualizarHeader() {
     }
 }
 
+/** Si ya hay sesión y entrás a login, redirige al home o admin. */
 function redirigirSiYaLogueado() {
     if (!usuarioActual) return false;
 
@@ -127,7 +156,8 @@ function redirigirSiYaLogueado() {
     return false;
 }
 
-/* ─── INDEX ─── */
+/* ─── INDEX (home) ─── */
+/** Carga JSON, pinta destacada/vigentes/cerradas y activa polling cada 3 s. */
 async function iniciarIndex() {
     await cargarDatos();
     await renderizarIndex();
@@ -264,6 +294,8 @@ async function cargarDestacada() {
 }
 
 /* ─── LOGIN ─── */
+
+/** Rellena email/clave al hacer clic en un perfil rápido. */
 function seleccionarPerfilRapido(btn) {
     document.getElementById("email").value = btn.dataset.email || "";
     document.getElementById("password").value = btn.dataset.password || "";
@@ -277,6 +309,7 @@ function seleccionarPerfilRapido(btn) {
     btn.classList.add("activo");
 }
 
+/** Crea botones de acceso rápido con usuarios del JSON. */
 async function cargarPerfilesRapidos() {
     const contenedor = document.getElementById("perfilesBotones");
     const seccion = document.querySelector(".perfiles-rapidos");
@@ -317,6 +350,7 @@ async function cargarPerfilesRapidos() {
     }
 }
 
+/** Formulario login: POST API y guarda sesión en localStorage. */
 function iniciarLogin() {
     const btnLogin = document.getElementById("btnLogin");
     if (!btnLogin) return;
@@ -365,7 +399,8 @@ function iniciarLogin() {
     });
 }
 
-/* ─── DETALLE APUESTA ─── */
+/* ─── DETALLE APUESTA (apuesta.html) ─── */
+/** Carga apuesta por URL; vigente = formulario; cerrada = resultado GAN/PER. */
 async function iniciarApuesta() {
     const numeroApuesta = obtenerApuestaDesdeUrl();
 
@@ -534,7 +569,8 @@ function actualizarResumen(pronostico, dividendo) {
     document.getElementById("resumenApuesta").style.display = "block";
 }
 
-/* ─── ADMIN ─── */
+/* ─── ADMIN (admin.html) ─── */
+/** Verifica rol admin, carga tabs y polling como en el index. */
 async function iniciarAdmin() {
     if (!usuarioActual || usuarioActual.rol !== "admin") {
         window.location.href = "login.html";
@@ -904,7 +940,8 @@ async function cerrarApuesta(numeroApuesta) {
     await mostrarModalCerrarApuesta(numeroApuesta);
 }
 
-/* ─── TABS ADMIN ─── */
+/* ─── TABS Y MODAL ADMIN ─── */
+
 function mostrarTab(tabId, tabBtn) {
     document.querySelectorAll(".tab-contenido").forEach(function(tab) {
         tab.style.display = "none";
@@ -924,7 +961,9 @@ function mostrarTab(tabId, tabBtn) {
     }
 }
 
-/* ─── HELPERS ─── */
+/* ─── HELPERS (formato, HTML, headers HTTP, navegación) ─── */
+
+/** Headers para rutas solo admin (middleware verificarAdmin lee header rol). */
 function headersAdmin() {
     return {
         "Content-Type": "application/json",

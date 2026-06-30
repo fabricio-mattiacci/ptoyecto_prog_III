@@ -1,3 +1,9 @@
+/*
+ * apuestaController.js — CRUD de apuestas (capa HTTP)
+ * Recibe requests, llama apuestaModel/pronosticoModel y responde JSON.
+ * El frontend normalmente NO usa estos GET; lee datos.json.
+ */
+
 const apuestaModel = require("../models/apuestaModel");
 const pronosticoModel = require("../models/pronosticoModel");
 const { calcularPozoBruto } = require("../utils/calcularTotales");
@@ -21,6 +27,7 @@ async function obtenerCerradas(req, res) {
     }
 }
 
+/** Detalle completo: apuesta + pronósticos con SUM + filas Apuestas_personas */
 async function obtenerPorApuesta(req, res) {
     try {
         const numeroApuesta = req.params.apuesta;
@@ -37,6 +44,7 @@ async function obtenerPorApuesta(req, res) {
     }
 }
 
+/** Admin: crea fila en apuestas + una fila en Apuestas_detalle por cada pronóstico */
 async function crear(req, res) {
     try {
         const { titulo, fechaEvento, fechaLimite, pronosticos } = req.body;
@@ -79,6 +87,7 @@ async function quitarDestacada(req, res) {
     }
 }
 
+/** Admin elige ocurrencia ganadora → estado FIN + GAN/PER en Apuestas_personas */
 async function cerrar(req, res) {
     try {
         const { ocurrenciaGanadora } = req.body;

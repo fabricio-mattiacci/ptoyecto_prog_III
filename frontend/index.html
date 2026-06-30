@@ -1,3 +1,15 @@
+<!--
+  index.html — PÁGINA PRINCIPAL (home)
+  ───────────────────────────────────
+  Qué hace:
+  - Muestra la apuesta DESTACADA arriba (la que el admin marcó con prioridad).
+  - Lista APUESTAS VIGENTES (aún se puede apostar).
+  - Lista APUESTAS CERRADAS (ya vencieron o el admin las cerró).
+  - El contenido real lo arma main.js leyendo datos.json (no está fijo en el HTML).
+  - Cada 3 segundos revisa si cambió el JSON y actualiza la pantalla.
+
+  Scripts: datos.js (lee JSON) → main.js (pinta cards y eventos).
+-->
 <!DOCTYPE html>
 <html lang="es">
 <head>

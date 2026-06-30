@@ -1,3 +1,16 @@
+/*
+ * styles.css — ESTILOS GLOBALES DE ApostApp
+ * ─────────────────────────────────────────
+ * Define el aspecto visual de todas las páginas:
+ * - Layout general (header fijo, footer abajo).
+ * - Botones (.btn-primary, .btn-outline, etc.).
+ * - Sección destacada en el home.
+ * - Cards de apuestas en grillas.
+ * - Formularios de login y de apostar.
+ * - Panel admin (tabs, tabla usuarios, modal de cierre).
+ * - Diseño responsivo al final del archivo.
+ */
+
 * {
     margin: 0;
     padding: 0;

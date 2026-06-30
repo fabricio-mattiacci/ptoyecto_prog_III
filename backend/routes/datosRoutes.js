@@ -1,3 +1,9 @@
+/*
+ * datosRoutes.js — GET /api/datos
+ * Devuelve el archivo datos.json (espejo de la base con totales calculados).
+ * Es la única ruta que usa el frontend para LEER listas y detalles.
+ */
+
 const express = require("express");
 const fs = require("fs");
 const path = require("path");

@@ -1,3 +1,15 @@
+<!--
+  apuesta.html — DETALLE DE UNA APUESTA
+  ─────────────────────────────────────
+  Qué hace:
+  - Se abre con ?apuesta=NUMERO en la URL (ej: apuesta.html?apuesta=1003).
+  - Muestra título, fechas, pozo y las OPCIONES (pronósticos) con dividendo.
+  - Si la apuesta está VIGENTE: elegís opción, monto y confirmás → POST /api/pronosticos/apostar.
+  - Si está CERRADA: muestra resultado (GAN/PER) y quién apostó qué.
+  - Requiere estar logueado para apostar.
+
+  Columna izquierda: pronósticos | Columna derecha: formulario de apuesta.
+-->
 <!DOCTYPE html>
 <html lang="es">
 <head>

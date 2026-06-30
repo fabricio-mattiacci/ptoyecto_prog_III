@@ -1,19 +1,35 @@
+/*
+ * datos.js — CAPA DE LECTURA (solo lee datos.json)
+ * ───────────────────────────────────────────────
+ * El frontend NO consulta listas por API GET de apuestas/usuarios.
+ * Todo se lee desde GET /api/datos → backend/data/datos.json
+ *
+ * Ese JSON se sincroniza con SQLite cada vez que hay un cambio (apostar, crear, cerrar).
+ * Los pozos y dividendos ya vienen calculados con SUM en el servidor.
+ */
+
 const DATOS_API = "http://localhost:3000/api/datos";
 
+// Caché en memoria para no pedir el JSON en cada función
 let cacheDatos = null;
 let ultimaActualizacion = null;
 
+/* ─── FECHAS Y ESTADO DE APUESTAS ─── */
+
+/** Fecha de hoy en formato YYYY-MM-DD (para comparar con fecha_cierre). */
 function fechaHoy() {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     return hoy.toISOString().slice(0, 10);
 }
 
+/** true si la fecha de cierre ya pasó (la apuesta deja de aceptar apuestas). */
 function apuestaVencidaPorFecha(fechaCierre) {
     if (!fechaCierre) return false;
     return fechaCierre < fechaHoy();
 }
 
+/** Convierte estado de la DB (ACT/FIN) + fecha → 'vigente' o 'cerrada' para la UI. */
 function estadoApuestaDesdeJson(apuesta) {
     if (apuesta.estado === "FIN") return "cerrada";
     if (apuesta.estado === "ACT" && apuestaVencidaPorFecha(apuesta.fecha_cierre)) return "cerrada";
@@ -21,6 +37,7 @@ function estadoApuestaDesdeJson(apuesta) {
     return apuesta.estado;
 }
 
+/** Mapea una fila de `apuestas` del JSON a nombres amigables para main.js. */
 function mapApuesta(apuesta) {
     return {
         apuesta: apuesta.apuesta,
@@ -35,6 +52,9 @@ function mapApuesta(apuesta) {
     };
 }
 
+/* ─── ARMAR OBJETOS DESDE EL JSON ─── */
+
+/** Opciones de una apuesta: descripción, total apostado y dividendo (ya vienen del export). */
 function obtenerPronosticosDesdeJson(datos, numeroApuesta) {
     return datos.Apuestas_detalle
         .filter(function(d) { return d.apuesta === numeroApuesta; })
@@ -50,6 +70,7 @@ function obtenerPronosticosDesdeJson(datos, numeroApuesta) {
         });
 }
 
+/** Apuestas de personas en una apuesta: combina JSON de tablas sin JOIN (en JS). */
 function obtenerApuestasPersonasDesdeJson(datos, numeroApuesta) {
     return datos.Apuestas_personas
         .filter(function(ap) { return ap.apuesta === numeroApuesta; })
@@ -74,6 +95,7 @@ function obtenerApuestasPersonasDesdeJson(datos, numeroApuesta) {
         .sort(function(a, b) { return String(b.fecha).localeCompare(String(a.fecha)); });
 }
 
+/** Apuesta completa para apuesta.html: cabecera + pronósticos + quién apostó. */
 function obtenerApuestaDetalleDesdeJson(datos, numeroApuesta) {
     const codigoApuesta = Number(numeroApuesta);
     const raw = datos.apuestas.find(function(a) { return a.apuesta === codigoApuesta; });
@@ -91,6 +113,7 @@ function obtenerApuestaDetalleDesdeJson(datos, numeroApuesta) {
     });
 }
 
+/** Lista usuarios para login (compara clave en main.js) y tabla admin. */
 function obtenerUsuariosDesdeJson(datos) {
     return datos.personas.map(function(p) {
         return {
@@ -107,6 +130,7 @@ function obtenerUsuariosDesdeJson(datos) {
     });
 }
 
+/** Apuestas ACT con fecha de cierre >= hoy. */
 function obtenerApuestasVigentesDesdeJson(datos) {
     return datos.apuestas
         .filter(function(a) {
@@ -118,6 +142,7 @@ function obtenerApuestasVigentesDesdeJson(datos) {
         });
 }
 
+/** Apuestas FIN o ACT pero con fecha de cierre ya pasada. */
 function obtenerApuestasCerradasDesdeJson(datos) {
     return datos.apuestas
         .filter(function(a) {
@@ -129,6 +154,9 @@ function obtenerApuestasCerradasDesdeJson(datos) {
         });
 }
 
+/* ─── CARGA Y POLLING ─── */
+
+/** Descarga datos.json del servidor y guarda en caché. */
 async function cargarDatos() {
     const res = await fetch(`${DATOS_API}?t=${Date.now()}`);
     if (!res.ok) {
@@ -168,6 +196,10 @@ async function obtenerUsuarios() {
     return obtenerUsuariosDesdeJson(datos);
 }
 
+/**
+ * Cada X ms vuelve a pedir el JSON; si cambió `actualizado`, ejecuta callback.
+ * Usado en index y admin para ver pozos/dividendos en tiempo casi real.
+ */
 function iniciarPollingDatos(callback, intervaloMs) {
     const cada = intervaloMs || 3000;
     return setInterval(async function() {
